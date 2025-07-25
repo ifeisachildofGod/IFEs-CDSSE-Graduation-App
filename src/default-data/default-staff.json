@@ -1,0 +1,31 @@
+{
+    "teachers": {
+        "t_id1": ["$$Teacher$$", {
+            "id": "t_id1",
+            "IUD": null,
+            "name": ["$$CharacterName$$", {"sur": "Eugena", "first": "Mbeke", "middle": "Georgina", "abrev": "Mbeke", "other": null}],
+            "department": ["$$Department$$", {"id": "d_id1", "name": "Humanities"}],
+            "subjects": [
+                ["$$Subject$$", {"id": "s_id1", "name": "Civic Education", "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}], "periods": [["Friday", 2], ["Friday", 3]]}]
+            ],
+            "img_path": "src/profile-images/t_id1.png",
+            "attendance": []
+        }]
+    },
+    "prefects": {
+        "p_id1": ["$$Prefect$$", {
+            "id": "p_id1",
+            "IUD": null,
+            "name": ["$$CharacterName$$", {"sur": "Eze", "first": "Emmmanuel", "middle": "Udochukwu", "abrev": "Emma", "other": null}],
+            "post_name": "Parade Commander",
+            "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
+            "img_path": "src/profile-images/p_id1.png",
+            "duties": {"Friday": ["Morning", "Parade"]},
+            "attendance": []
+        }]
+    }
+}
+
+
+
+
