@@ -198,12 +198,10 @@ class SetupScreen(QDialog):
         self.setFixedWidth(700)
         self.setFixedHeight(500)
         
-        self.ble_scanner = BleakScanner()
-        
         self.connected = False
         self.connect_clicked = False
         self.connect_only_widgets = []
-        self.data: dict[str, str | int | Literal["bluetooth", "serial"]] = {}
+        self.data: dict[str, str | int | Literal["bt", "ser"]] = {}
         
         
         layout = QVBoxLayout()
@@ -218,8 +216,8 @@ class SetupScreen(QDialog):
         bluetooth_widget.setProperty("class", "labeled-widget")
         
         self.main_widget = TabViewWidget()
-        self.main_widget.add("USB Serial Connection", serial_widget)
-        self.main_widget.add("Bluetooth Connection", bluetooth_widget)
+        self.main_widget.add("Serial Connection", serial_widget)
+        self.main_widget.add("BLE Connection", bluetooth_widget)
         
         _, serial_upper_buttons_layout = create_widget(serial_layout, QHBoxLayout)
         
@@ -283,7 +281,7 @@ class SetupScreen(QDialog):
         bt_port_edit_layout.addWidget(QLabel("Port"))
         bt_port_edit_layout.addWidget(self.bt_port_edit)
         
-        bluetooth_layout.addWidget(LabeledField("Bluetooth Devices", bluetooth_devices_widget, height_size_policy=QSizePolicy.Policy.Minimum))
+        bluetooth_layout.addWidget(LabeledField("Bluetooth Low Energy Devices", bluetooth_devices_widget, height_size_policy=QSizePolicy.Policy.Minimum))
         bluetooth_layout.addWidget(bt_port_edit_widget, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         
         self.main_layout.addWidget(self.main_widget)
@@ -334,8 +332,8 @@ class SetupScreen(QDialog):
             self.connector.device.baud_rate = self.data.get("baud_rate", None)
             
             if self.data.get("connection-type", None) is not None:
-                self.connector.set_bluetooth(self.data["connection-type"] == "bluetooth")
-                self.connector.set_serial(self.data["connection-type"] == "serial")
+                self.connector.set_bluetooth(self.data["connection-type"] == "bt")
+                self.connector.set_serial(self.data["connection-type"] == "ser")
                 
                 self.connector.start_connection()
         
@@ -386,10 +384,10 @@ class SetupScreen(QDialog):
         data = {}
         
         if send_type == "bt" or send_type is None:
-            bt_data = bt_classic.discover_devices(lookup_names=True) + [(bl_info.address, bl_info.name) for bl_info in asyncio.run(self.ble_scanner.discover())]
+            bt_data = self.connector.find_devices("bt")
             data["bt"] = bt_data
         elif send_type == "ser" or send_type is None:
-            ser_data = [port.name for port in comports()]
+            ser_data = self.connector.find_devices("ser")
             data["ser"] = ser_data
         
         self.update_signal.emit(data, args)
@@ -419,12 +417,12 @@ class SetupScreen(QDialog):
             self.connected = True
                 
             if a0 == -1:
-                self.data["connection-type"] = "serial"
+                self.data["connection-type"] = "ser"
                 self.data["port"] = self.port_selector_widget.currentText()
                 self.data["baud_rate"] = int(self.baud_rate_selector_widget.currentText())
             elif isinstance(a0, int) and a0 >= 0:
-                self.data["connection-type"] = "bluetooth"
-                self.data["addr"] = self.bluetooth_devices[a0][1]
+                self.data["connection-type"] = "bt"
+                self.data["addr"] = self.bluetooth_devices[a0][0]
                 try:
                     self.data["port"] = int(self.bt_port_edit.text())
                 except ValueError:

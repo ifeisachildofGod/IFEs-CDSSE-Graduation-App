@@ -11,8 +11,7 @@ import serial
 import socket
 import asyncio
 from copy import deepcopy
-from bleak import BleakScanner
-import bluetooth as bt_classic
+from bleak import BleakScanner, BleakClient
 from serial.tools.list_ports import comports
 from typing import Any, Optional, Callable, Literal
 

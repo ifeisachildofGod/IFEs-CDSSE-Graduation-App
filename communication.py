@@ -14,6 +14,7 @@ class BaseCommSystem:
     def __init__(self, device: CommDevice, error_func: Callable[[Exception], None]):
         self.device = device
         self.error_func = error_func
+        self.ble_scanner = BleakScanner()
         
         self.msg_buffer = []
         
@@ -60,6 +61,12 @@ class BaseCommSystem:
     def stop_connection(self):
         self.connected = False
         self.device.connection_changed.emit(self.connected)
+    
+    def find_devices(self, key: str):
+        if key == "ser":
+            return [port.name for port in comports()]
+        elif key == "bt":
+            return [(bl_info.address, bl_info.name) for bl_info in asyncio.run(self.ble_scanner.discover())]
     
     def _init_process_data(self, data: bytes):
         return data.decode().strip().removesuffix("|").strip()
@@ -109,19 +116,35 @@ class BaseCommSystem:
             
             serial_target.close()
         elif self.bluetooth_mode:
-            assert self.device.baud_rate is not None, "Invalid device"
+            assert self.device.addr is not None, "Invalid device"
             
-            with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM) as bt_comm:
-                bt_comm.connect((self.device.addr, self.device.port))
-                
-                while self.connected:
-                    if self.msg_buffer:
-                        bt_comm.send(self.msg_buffer.pop(0).encode())
+            # BLE override using bleak
+            async def run_ble():
+                async with BleakClient(self.device.addr) as client:
+                    # Automatically find first writable characteristic
+                    services = await client.services
+                    writable_char = None
+                    for service in services:
+                        for char in service.characteristics:
+                            if 'write' in char.properties or 'write-without-response' in char.properties:
+                                writable_char = char.uuid
+                                break
+                        if writable_char:
+                            break
                     
-                    msg_recv = self._init_process_data(bt_comm.recv(1024))
+                    assert writable_char, "No writable characteristic found on device."
                     
-                    if msg_recv:
-                        self._data_process(msg_recv)
+                    while self.connected:
+                        if self.msg_buffer:
+                            msg = self.msg_buffer.pop(0)
+                            await client.write_gatt_char(writable_char, msg.encode())
+                        
+                        data = await client.read_gatt_char(writable_char)
+                        msg_recv = self._init_process_data(data)
+                        if msg_recv:
+                            self._data_process(msg_recv)
+
+            asyncio.run(run_ble())
     
     def _process_data(self, data: str):
         processed_data = {}
@@ -153,49 +176,4 @@ class BaseCommSystem:
         
         return data
 
-
-
-# class DirectSerial(BaseCommSystem):
-#     def __init__(self, device: CommDevice, error_func):
-#         super().__init__(device, error_func)
-        
-#         assert self.device.baud_rate is not None, "Invalid device"
-    
-#     def _connect(self):
-#         serial_target = serial.Serial(self.device.port, self.device.baud_rate, timeout=1)
-        
-#         time.sleep(2)  # Wait for Target to initialize
-        
-#         while self.connected:
-#             if self.connection_message:
-#                 serial_target.write(self.connection_message.encode())
-            
-#             if serial_target.in_waiting > 0:
-#                 msg_recv = self._init_process_data(serial_target.readline())
-#                 if msg_recv:
-#                     self._data_process(msg_recv)
-            
-#             self.connection_message = ""
-        
-#         serial_target.close()
-
-
-# class Bluetooth(BaseCommSystem):
-#     def __init__(self, device: CommDevice, error_func):
-#         super().__init__(device, error_func)
-        
-#         assert self.device.addr is not None, "Invalid device"
-    
-#     def _connect(self):
-#         with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM) as bt_comm:
-#             bt_comm.connect((self.device.addr, self.device.port))
-            
-#             while self.connected:
-#                 bt_comm.send(self.connection_message.encode())
-#                 msg_recv = self._init_process_data(bt_comm.recv(1024))
-                
-#                 if msg_recv:
-#                     self._data_process(msg_recv)
-                
-#                 self.connection_message = ""
 
