@@ -3,7 +3,7 @@ from others import *
 from imports import *
 from communication import *
 
-from theme.theme import THEME_MANAGER
+from theme import THEME_MANAGER
 
 class TabViewWidget(QWidget):
     def __init__(self, bar_orientation: Literal["vertical", "horizontal"] = "horizontal"):
@@ -63,13 +63,17 @@ class TabViewWidget(QWidget):
         
         self.tab_buttons[0].click()
     
-    def get(self, tab_name: str, default: Any | None = None):
-        return (self.stack.children() + [default])[next((i for i, b in enumerate(self.tab_buttons) if b.text() == tab_name), len(self.stack.children()))]
+    def get(self, tab_name: str, default: Any = ...):
+        tab_widget = (self.stack.children() + [default])[next((i for i, b in enumerate(self.tab_buttons) if b.text() == tab_name), len(self.stack.children()))]
+        if type(tab_widget) == type(Ellipsis):
+            raise KeyError(f'There is no tab named: "{tab_name}"')
+        return tab_widget
     
     def index(self, widget: QWidget):
         return next(i for i, w in enumerate(self.children()) if w == widget)
     
     def set_tab(self, tab_name: str):
+        print(tab_name)
         self.tab_buttons[self.index(self.get(tab_name))].click()
     
     def _make_tab_clicked_func(self, index: int, clicked_func: Callable[[int, ], None] | None):
@@ -84,6 +88,10 @@ class TabViewWidget(QWidget):
             
             for i, button in enumerate(self.tab_buttons):
                 button.setChecked(i == index)
+            
+            child: QWidget = self.stack.children()[index]
+            if child.isWidgetType():
+                child.setFocus()
         
         return func
 
@@ -206,6 +214,93 @@ class CharacterNameWidget(QWidget):
         self.main_layout.addWidget(LabeledField("Names", widget_2_1, height_size_policy=QSizePolicy.Policy.Maximum))
 
 
+class ThreshDial(QDial):
+    def __init__(self, parent=None, minimum:int=None, maximum:int=None, readonly=True, gradient_start_color=None, gradient_middle_color=None, gradient_end_color=None):
+        super().__init__(parent)
+        self.setMinimum(0 if minimum is None else minimum)
+        self.setMaximum(100 if maximum is None else maximum)
+        self.setNotchesVisible(True)
+        self.setWrapping(False)
+        
+        if readonly:
+            self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
+        self.setStyleSheet("""
+            QDial {
+                background-color: """ + THEME_MANAGER.get_current_palette()["highlight"] + """;
+            }
+            QDial::groove {
+                background: transparent;
+            }
+            QDial::handle {
+                background-color: #00c896;
+                border: 2px solid #00ffcc;
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+            }
+        """)
+        
+        self.thresh_value = 0
+        
+        self.gradient_start_color = gradient_start_color
+        self.gradient_middle_color = gradient_middle_color
+        self.gradient_end_color = gradient_end_color
+    
+    def set_thresh_value(self, value: float | int):
+        self.thresh_value = value
+    
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Draw outer gradient ring *around* the dial
+        center = self.rect().center().toPointF()
+        radius = min(self.width(), self.height()) // 2 - 5
+        gradient = QConicalGradient(center, -90)
+        gradient.setColorAt(0.0, QColor("#15ff00") if self.gradient_start_color is None else QColor(self.gradient_start_color))
+        gradient.setColorAt(0.5, QColor("#c8c500") if self.gradient_middle_color is None else QColor(self.gradient_middle_color))
+        gradient.setColorAt(1.0, QColor("#ff0000") if self.gradient_end_color is None else QColor(self.gradient_end_color))
+        
+        pen = painter.pen()
+        pen.setWidth(5)
+        pen.setBrush(gradient)
+        painter.setPen(pen)
+        
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawArc(
+            int(center.x() - radius),
+            int(center.y() - radius),
+            int(radius * 2),
+            int(radius * 2),
+            0 * 16,
+            360 * 16
+        )
+        
+        thresh_indicator_radius = 2
+        
+        pen = painter.pen()
+        pen.setWidth(5)
+        pen.setBrush(QColor(THEME_MANAGER.get_current_palette()["prefect"]))
+        painter.setPen(pen)
+        
+        angle_offset = 30
+        max_turn = (360 - (angle_offset * 2))
+        angle = -(self.thresh_value - self.minimum()) * max_turn / (self.maximum() - self.minimum())
+        angle += 270 - angle_offset
+        angle = angle % 360
+        
+        thresh_radius = radius - thresh_indicator_radius - 5
+        
+        painter.drawEllipse(
+            int(center.x() + thresh_radius * math.cos(math.radians(angle))),
+            int(center.y() - thresh_radius * math.sin(math.radians(angle))),
+            int(thresh_indicator_radius * 2),
+            int(thresh_indicator_radius * 2)
+        )
+
 
 
 class SonarCanvas(FigureCanvas):
@@ -319,7 +414,7 @@ class BarWidget(QWidget):
         keys_layout.addWidget(key_frame)
         keys_layout.addWidget(name_label, alignment=Qt.AlignmentFlag.AlignLeft)
         
-        self.bar_canvas.bar(data[0], data[1], True, color=color, edgecolor="black")
+        self.bar_canvas.bar(data[0], data[1], display_values=True, color=color, edgecolor="black")
         
         self.main_keys_layout.addWidget(keys_widget, alignment=Qt.AlignmentFlag.AlignLeft)
 

@@ -16,6 +16,11 @@ MONTHS_OF_THE_YEAR = {
     "December": 31,
 }
 
+def is_check_in(t: Time, cin: Time, cout: Time):
+    cit_diff = math.fabs((cin.hour - t.hour) * 60 + (cin.min - t.min) + (cin.sec - t.sec) / 60)
+    cot_diff = math.fabs((cout.hour - t.hour) * 60 + (cout.min - t.min) + (cout.sec - t.sec) / 60)
+    
+    return cit_diff < cot_diff
 
 def get_attendance_time_interval(min_timeline_dates, max_timeline_dates):
     interval = None
@@ -31,7 +36,7 @@ def get_attendance_time_interval(min_timeline_dates, max_timeline_dates):
         if start_days is not None and end_days is not None:
             diff = end_days - start_days
             week_amt = int(diff / 7)
-            interval = week_amt, week_amt % 7
+            interval = week_amt, (week_amt % 7);
             break
     
     return interval

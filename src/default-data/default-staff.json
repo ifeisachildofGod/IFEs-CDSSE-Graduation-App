@@ -1,26 +1,56 @@
 {
     "teachers": {
-        "t_id1": ["$$Teacher$$", {
-            "id": "t_id1",
-            "IUD": null,
-            "name": ["$$CharacterName$$", {"sur": "Eugena", "first": "Mbeke", "middle": "Georgina", "abrev": "Mbeke", "other": null}],
-            "department": ["$$Department$$", {"id": "d_id1", "name": "Humanities"}],
-            "subjects": [
-                ["$$Subject$$", {"id": "s_id1", "name": "Civic Education", "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}], "periods": [["Friday", 2], ["Friday", 3]]}]
-            ],
-            "img_path": "src/profile-images/t_id1.png",
-            "attendance": []
-        }]
+        
     },
     "prefects": {
         "p_id1": ["$$Prefect$$", {
             "id": "p_id1",
-            "IUD": null,
+            "IUD": "6999BDB2",
             "name": ["$$CharacterName$$", {"sur": "Eze", "first": "Emmmanuel", "middle": "Udochukwu", "abrev": "Emma", "other": null}],
             "post_name": "Parade Commander",
             "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
             "img_path": "src/profile-images/p_id1.png",
-            "duties": {"Friday": ["Morning", "Parade"]},
+            "duties": {"Wednesday": ["Morning duties", "Assembly parade", "Cadet training"]},
+            "attendance": []
+        }],
+        "p_id2": ["$$Prefect$$", {
+            "id": "p_id2",
+            "IUD": "637B910C",
+            "name": ["$$CharacterName$$", {"sur": "Eshiokwu", "first": "Johnpaul", "middle": "Bassey", "abrev": "J.P", "other": null}],
+            "post_name": "Band Prefect",
+            "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
+            "img_path": "src/profile-images/p_id1.png",
+            "duties": {"Monday": ["Morning", "Band"], "Thursday": ["Afternoon", "Band practice"], "Friday": ["Morning", "Band"]},
+            "attendance": []
+        }],
+        "p_id3": ["$$Prefect$$", {
+            "id": "p_id3",
+            "IUD": "A3DEB30C",
+            "name": ["$$CharacterName$$", {"sur": "Igboke", "first": "Chisom", "middle": "Joseph", "abrev": "Chisom", "other": null}],
+            "post_name": "Ast. Games",
+            "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
+            "img_path": "src/profile-images/p_id1.png",
+            "duties": {"Friday": ["Afternoon", "Boys Footbal"]},
+            "attendance": []
+        }],
+        "p_id4": ["$$Prefect$$", {
+            "id": "p_id4",
+            "IUD": "B3A6DE0C",
+            "name": ["$$CharacterName$$", {"sur": "Anyanwu", "first": "Divine", "middle": "Godswill", "abrev": "Onuwa", "other": null}],
+            "post_name": "Special Prefect",
+            "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
+            "img_path": "src/profile-images/p_id1.png",
+            "duties": {"Thursday": ["Morning", "Nothing"]},
+            "attendance": []
+        }],
+        "p_id5": ["$$Prefect$$", {
+            "id": "p_id5",
+            "IUD": "89A2A1B4",
+            "name": ["$$CharacterName$$", {"sur": "Eze", "first": "Ifebuche", "middle": "Esther", "abrev": "Esther", "other": null}],
+            "post_name": "Games Prefect (Girl)",
+            "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
+            "img_path": "src/profile-images/p_id1.png",
+            "duties": {"Wednesday": ["Afternoon", "Girls Football" ]},
             "attendance": []
         }]
     }

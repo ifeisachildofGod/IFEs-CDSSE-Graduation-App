@@ -2,12 +2,12 @@
 from widgets.extra_widgets import *
 
 class BaseStaffListWidget(QWidget):
-    def __init__(self, parent_widget: TabViewWidget, data: AppData, staff: Staff, tab_name: str, comm_device: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
+    def __init__(self, parent_widget: TabViewWidget, data: AppData, staff: Staff, tab_name: str, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
         super().__init__()
         
         self.data = data
         self.staff = staff
-        self.comm_device = comm_device
+        self.comm_system = comm_system
         
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -56,16 +56,17 @@ class BaseStaffListWidget(QWidget):
         self.sub_info_layout.addWidget(LabeledField("IUD", self.iud_label), alignment=Qt.AlignmentFlag.AlignLeft)
     
     def set_iud(self):
-        if not self.comm_device.connected:
+        if not self.comm_system.connected:
             QMessageBox.warning(self.parentWidget(), "Not Connected", "No device connected")
         else:
             card_scanner_widget: CardScanScreenWidget = self.parent_widget.stack.widget(self.card_scanner_index)
             card_scanner_widget.set_self(self.staff, self.tab_name, self.iud_label)
             
             self.parent_widget.stack.setCurrentIndex(self.card_scanner_index)
-            self.comm_device.send_message("SCANNING")
+            self.comm_system.send_message("SCANNING")
     
     def view_punctuality_data(self):
+        self.comm_system.send_message(f"staffPreformance:{self.staff.name.abrev}")
         staff_data_widget: StaffDataWidget = self.parent_widget.stack.widget(self.staff_data_index)
         staff_data_widget.set_self(self.staff, self.tab_name)
         
@@ -92,7 +93,7 @@ class BaseAttendanceWidget(QWidget):
         self.main_layout = layout_type()
         self.container.setLayout(self.main_layout)
         
-        self.labeled_container = LabeledField(name, self.container, height_size_policy=QSizePolicy.Policy.Maximum)
+        self.labeled_container = LabeledField(name, self.container, height_size_policy=QSizePolicy.Policy.Maximum, width_size_policy=QSizePolicy.Policy.Maximum)
         
         layout.addWidget(self.labeled_container)
     

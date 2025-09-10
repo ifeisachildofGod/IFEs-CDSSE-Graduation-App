@@ -2,13 +2,16 @@
     "teacher_cit": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}],
     "prefect_cit": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}],
     
+    "teacher_cot": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}],
+    "prefect_cot": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}],
+    
     "teacher_timeline_dates": [
-        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Monday", "date": 1, "month": "January", "year": 2025}],
-        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}], "day": "Sunday", "date": 31, "month": "December", "year": 2025}]
+        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Friday", "date": 25, "month": "July", "year": 2025}],
+        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}], "day": "Friday", "date": 27, "month": "December", "year": 2025}]
     ],
     "prefect_timeline_dates": [
-        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Monday", "date": 1, "month": "January", "year": 2025}],
-        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}], "day": "Sunday", "date": 31, "month": "December", "year": 2025}]
+        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Monday", "date": 16, "month": "July", "year": 2025}],
+        ["$$AttendanceEntry$$", {"time": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}], "day": "Friday", "date": 27, "month": "December", "year": 2025}]
     ],
     
     "sonar_safety_value": 30,

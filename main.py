@@ -40,30 +40,24 @@ class Window(QMainWindow):
         
         self.data = AppData(**app_data) if not self.file_path else self.file_manager.get_file_data()
         
+        attendance_chart_widget = AttendanceBarWidget(self.data)
+        punctuality_graph_widget = PunctualityGraphWidget(self.data)
+        
         # Create stacked widget for content
-        staff_widget = TabViewWidget("vertical")
-        staff_widget.add("Attendance", AttendanceWidget(staff_widget, self.data, "Attendance Chart", "Punctuality Chart", self.target_connector, self.saved_state_changed))
-        staff_widget.add("Teachers", TeacherStaffListWidget(staff_widget, self.data, "Teachers", self.target_connector, 5, 6))
-        staff_widget.add("Prefects", PrefectStaffListWidget(staff_widget, self.data, "Prefects", self.target_connector, 5, 6))
-        staff_widget.add("Attendance Chart", AttendanceBarWidget(self.data))
-        staff_widget.add("Punctuality Graph", AttendanceBarWidget(self.data))
-        staff_widget.stack.addWidget(CardScanScreenWidget(self.target_connector, staff_widget, self.saved_state_changed))
-        staff_widget.stack.addWidget(StaffDataWidget(self.data, staff_widget))
+        attendance_widget = TabViewWidget("vertical")
+        attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed), self.comm_send_screen_changed("state:1"))
+        attendance_widget.add("Teachers", TeacherStaffListWidget(attendance_widget, self.data, "Teachers", self.target_connector, 5, 6), self.comm_send_screen_changed("state:4"))
+        attendance_widget.add("Prefects", PrefectStaffListWidget(attendance_widget, self.data, "Prefects", self.target_connector, 5, 6), self.comm_send_screen_changed("state:5"))
+        attendance_widget.add("Attendance Chart", attendance_chart_widget, self.comm_send_screen_changed("state:2"))
+        attendance_widget.add("Punctuality Graph", punctuality_graph_widget, self.comm_send_screen_changed("state:3"))
+        attendance_widget.stack.addWidget(CardScanScreenWidget(self.target_connector, attendance_widget, self.saved_state_changed))
+        attendance_widget.stack.addWidget(StaffDataWidget(self.data, attendance_widget))
         
-        security_widget = UltrasonicSonarWidget(self, self.data, Sensor(SensorMeta("Ultrasonic", "Floating bird", "8.9.1", "Arduino inc"), "src/sensor-images/sonar.png", self.target_connector), self.saved_state_changed)
-        
-        gas_widget = SensorWidget(self, self.data, Sensor(SensorMeta("Gas", "Flying fish", "13.1.0.1", "Arduino inc"), "src/sensor-images/gas.png", self.target_connector), self.saved_state_changed)
-        flame_widget = SensorWidget(self, self.data, Sensor(SensorMeta("Fire", "Fire free", "10.0.0.1", "Arduino inc"), "src/sensor-images/fire.png", self.target_connector), self.saved_state_changed)
-        
-        safety_widget, safety_layout = create_scrollable_widget(None, QVBoxLayout)
-        
-        safety_layout.addWidget(gas_widget)
-        safety_layout.addWidget(flame_widget)
+        sensors_widget = SensorsWidget(self.data, self.target_connector, self.saved_state_changed)
         
         main_screen_widget = TabViewWidget()
-        main_screen_widget.add("Staff", staff_widget, self.comm_send_screen_changed("STAFF"))
-        main_screen_widget.add("Security", security_widget, self.comm_send_screen_changed("SECURITY"))
-        main_screen_widget.add("Safety", safety_widget, self.comm_send_screen_changed("SAFETY"))
+        main_screen_widget.add("Staff", attendance_widget, self.comm_send_screen_changed("STAFF"))
+        main_screen_widget.add("Safety", sensors_widget, self.comm_send_screen_changed("SENSORS"))
         
         def conn_changed(connected):
             if not connected:
@@ -172,7 +166,7 @@ class Window(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # app.setWindowIcon(QIcon("src/icons-and-images/logo.png"))
+    app.setWindowIcon(QIcon("src/icons-and-images/logo.png"))
     
     THEME_MANAGER.apply_theme(app)
     

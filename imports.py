@@ -3,6 +3,7 @@
 # Utility Imports
 import os
 import sys
+import math
 import time
 import json
 import numpy
@@ -23,9 +24,9 @@ from PyQt6.QtWidgets import (
     QScrollArea, QCheckBox, QSlider,
     QFrame, QLayout, QApplication,
     QDialog, QLineEdit, QMainWindow, QComboBox,
-    QFileDialog
+    QFileDialog, QDial
 )
-from PyQt6.QtGui import QIcon, QPixmap, QIntValidator
+from PyQt6.QtGui import QIcon, QPixmap, QIntValidator, QPainter, QConicalGradient, QColor
 from PyQt6.QtCore import pyqtSignal as pySignal
 from PyQt6.QtCore import pyqtBoundSignal as pyBoundSignal
 from PyQt6.QtCore import Qt, QThread, QPoint

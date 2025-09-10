@@ -125,9 +125,9 @@ class StaffDataWidget(BaseExtraWidget):
 class CardScanScreenWidget(BaseExtraWidget):
     comm_signal = pySignal(str)
     
-    def __init__(self, comm_device: BaseCommSystem, parent_widget: TabViewWidget, saved_state_changed: pyBoundSignal):
+    def __init__(self, comm_system: BaseCommSystem, parent_widget: TabViewWidget, saved_state_changed: pyBoundSignal):
         super().__init__(parent_widget, "static")
-        
+        self.comm_system = comm_system
         self.saved_state_changed = saved_state_changed
         
         self.setStyleSheet("""
@@ -150,11 +150,12 @@ class CardScanScreenWidget(BaseExtraWidget):
         self.main_layout.addWidget(self.info_label, Qt.AlignmentFlag.AlignCenter)
         
         self.comm_signal.connect(self.scanned)
-        comm_device.set_data_point("IUD", self.comm_signal)
+        self.comm_system.set_data_point("IUD", self.comm_signal)
         
         self.iud_label = None
         
-        comm_device.connection_changed_signal.connect(self.connection_changed)
+        self.comm_system.connection_changed_signal.connect(self.connection_changed)
+        self.iud_changed = False
     
     def set_self(self, staff: Staff, staff_index: int, iud_label: QLabel):
         super().set_self(staff, staff_index)
@@ -165,7 +166,8 @@ class CardScanScreenWidget(BaseExtraWidget):
     
     def finished(self):
         self.iud_label = None
-        
+        if not self.iud_changed:
+            self.comm_system.send_message("NOT SCANNING")
         return super().finished()
     
     def connection_changed(self, state: bool):
@@ -178,8 +180,11 @@ class CardScanScreenWidget(BaseExtraWidget):
             self.iud_label.setText(self.staff.IUD)
             
             self.saved_state_changed.emit(False)
+            self.comm_system.send_message(f"setId:{self.staff.name.abrev},0,{time.ctime()}")
             
+            self.iud_changed = True
             self.finished()
+            self.iud_changed = False
 
 
 

@@ -8,6 +8,9 @@ class AppData:
     teacher_cit: Time
     prefect_cit: Time
     
+    teacher_cot: Time
+    prefect_cot: Time
+    
     teacher_timeline_dates: tuple[AttendanceEntry, AttendanceEntry]
     prefect_timeline_dates: tuple[AttendanceEntry, AttendanceEntry]
     

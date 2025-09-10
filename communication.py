@@ -106,10 +106,13 @@ class BaseCommSystem:
             
             while self.connected:
                 if self.msg_buffer:
+                    print("Data send:", self.msg_buffer[0])
                     serial_target.write(self.msg_buffer.pop(0).encode())
                 
                 if serial_target.in_waiting > 0:
-                    msg_recv = self._init_process_data(serial_target.readline())
+                    bytetext = serial_target.readline()
+                    print("Data recv: ", bytetext.decode())
+                    msg_recv = self._init_process_data(bytetext)
                     
                     if msg_recv:
                         self._data_process(msg_recv)

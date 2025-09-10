@@ -47,12 +47,13 @@ class AttendanceEntry:
     month: str
     year: int
     
+    is_check_in: bool = True
+    
     staff: Staff | None = None
 
 
 @dataclass
 class Sensor:
-    meta_data: SensorMeta
-    img_path: str
+    name: str
     comm_system: ... # type:BaseCommSystem
 

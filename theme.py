@@ -85,8 +85,17 @@ stylesheet = '''
   }}
   
   QMenuBar {{
-    background-color: {primary_hover};
+    background-color: {primary};
     color: {primary_text};
+  }}
+
+  QMenuBar::item {{
+    background: transparent;
+    padding: 4px 10px;
+  }}
+
+  QMenuBar::item:selected {{
+    background: {primary_hover};
   }}
   
   QRadioButton::indicator {{
@@ -280,13 +289,15 @@ stylesheet = '''
   QWidget.StaffListTeacherWidget * QLabel,
 	QWidget.AttendanceTeacherWidget * QLabel
   {{
-		color: white;
+		color: {text_teacher};
+    font-weight: bold;
 	}}
   
   QWidget.StaffListPrefectWidget * QLabel,
   QWidget.AttendancePrefectWidget * QLabel
   {{
-		color: black;
+		color: {text_prefect};
+    font-weight: bold;
 	}}
  
   QWidget.StaffListTeacherWidget * .labeled-title,
