@@ -24,12 +24,11 @@ class BaseExtraWidget(QWidget):
         self.staff: Staff | None = None
         self.staff_index: int | None = None
     
-    def set_self(self, staff: Staff, staff_tab_name: int):
+    def set_self(self, staff: Staff):
         self.staff = staff
-        self.staff_tab_name = staff_tab_name
     
     def finished(self):
-        self.parent_widget.set_tab(self.staff_tab_name)
+        self.parent_widget.set_tab("Staff")
         
         self.staff = None
         self.staff_index = None
@@ -41,11 +40,19 @@ class StaffDataWidget(BaseExtraWidget):
         
         self.data = data
         
+        self.staff_working_days = {}
+        
+        for prefect in self.data.prefects.values():
+            self.staff_working_days[prefect.id] = list(prefect.duties)
+        
+        for teacher in self.data.teachers.values():
+            self.staff_working_days[teacher.id] = list(set(flatten([[d for d, _ in s.periods] for s in teacher.subjects])))
+        
         self.attendance_widget: BarWidget | None = None
         self.punctuality_widget: GraphWidget | None = None
     
-    def set_self(self, staff, staff_tab_name):
-        super().set_self(staff, staff_tab_name)
+    def set_self(self, staff):
+        super().set_self(staff)
         
         if self.attendance_widget is not None:
             self.main_layout.removeWidget(self.attendance_widget)
@@ -58,69 +65,69 @@ class StaffDataWidget(BaseExtraWidget):
         if isinstance(staff, Teacher):
             bar_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Attendance Chart"
             graph_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Punctuality Graph"
-            week_days = list(set(flatten([[day for day, _ in s.periods] for s in staff.subjects])))
-            timeline_dates = self.data.teacher_timeline_dates
+            # week_days = list(set(flatten([[day for day, _ in s.periods] for s in staff.subjects])))
+            # timeline_dates = self.data.teacher_timeline_dates
+            staff_list = list(self.data.teachers)
+            cit = self.data.teacher_cit
         elif isinstance(staff, Prefect):
             bar_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Cummulative Attendance Chart"
             graph_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Average Punctuality Graph"
-            week_days = list(staff.duties.keys())
-            timeline_dates = self.data.prefect_timeline_dates
+            # week_days = list(staff.duties.keys())
+            # timeline_dates = self.data.prefect_timeline_dates
+            staff_list = list(self.data.prefects)
+            cit = self.data.prefect_cit
+        else:
+            raise Exception()
         
-        months = []
-        percentile_values = []
+        # months = []
+        # percentile_values = []
         
-        self.attendance_widget = BarWidget(bar_title, "Time (Months)", "Attendace (%)")
-        self.attendance_widget.bar_canvas.axes.set_ylim(0, 100)
-        
-        if staff.attendance:
-            monthly_attendance_data = {}
-            for attendance in staff.attendance:
-                monthly_attendance_data[f"{attendance.month} {attendance.year}"] = monthly_attendance_data.get(f"{attendance.month} {attendance.year}", 0) + 1
-            
-            for date, monthly_attendance in monthly_attendance_data.items():
-                month_end = AttendanceEntry(timeline_dates[1].time, timeline_dates[1].day, timeline_dates[1].date, timeline_dates[1].month, timeline_dates[1].year, timeline_dates[1].staff)
-                month_end.date = MONTHS_OF_THE_YEAR[timeline_dates[0].day]
-                month_end.year = timeline_dates[0].year
-                month_end.day = DAYS_OF_THE_WEEK[DAYS_OF_THE_WEEK.index(timeline_dates[0].day) + ((month_end.date - timeline_dates[0].date) % 7)]
-                start_week_amt, rem_days = get_attendance_time_interval(timeline_dates[0], month_end)
-                monthly_dta = (start_week_amt * len(week_days)) + len([d for d in week_days if d in rem_days])
-                
-                months.append(date)
-                percentile_values.append(monthly_attendance * 100 / monthly_dta)
-            
-            self.attendance_widget.add_data(f"{staff.name} Attendance Data", "red", (months, percentile_values))
-        
-        self.main_layout.addWidget(self.attendance_widget)
+        self.attendance_widget = BarWidget(bar_title, "Time (Weeks)", "Attendance (%)")
+        self.attendance_widget.bar_canvas.axes.set_ylim(0, 110)
         
         self.punctuality_widget = GraphWidget(graph_title, "Time", "Punctuality (Minutes)")
         
-        if staff.attendance:
-            self.update_attendance(staff.attendance)
-        
-        self.main_layout.addWidget(self.punctuality_widget)
-    
-    def update_attendance(self, cummul_attendance: list):
-        prev_date = f"{cummul_attendance[0].month} {cummul_attendance[0].year}"
-        
-        date_months_mapping: dict[str, list[tuple[int, Time]]] = {}
-        for attendance in cummul_attendance:
-            date = f"{attendance.month} {attendance.year}"
+        color = list(get_named_colors_mapping().values())[staff_list.index(staff.id) % len(list(get_named_colors_mapping().values()))]
             
-            if date != prev_date:
-                date_months_mapping[date] = [(attendance.date, attendance.time)]
+        labels_data = []
+        weeks_data = []
+        
+        for index, attendance in enumerate(staff.attendance):
+            if index:
+                if attendance.is_check_in and attendance.period.day in self.staff_working_days[attendance.staff.id]:
+                    curr_index = DAYS_OF_THE_WEEK.index(attendance.period.day)
+                    prev_index = DAYS_OF_THE_WEEK.index(staff.attendance[index - 1].period.day)
+                    
+                    if curr_index - prev_index == attendance.period.date - staff.attendance[index - 1].period.date:
+                        
+                        labels_data.append(f"{attendance.period.month} {attendance.period.year}\n{attendance.period.date - curr_index} to {attendance.period.date + (6 - curr_index)}")
+                        weeks_data.append(0)
+                    
+                    weeks_data[-1] += 1
             else:
-                date_months_mapping[date].append((attendance.date, attendance.time))
+                labels_data.append(f"{attendance.period.month} {attendance.period.year}\n{attendance.period.date - curr_index} to {attendance.period.date + (6 - curr_index)}")
+                weeks_data.append(1)
             
-            prev_date = date
+            # monthly_attendance_data[f"{attendance.month} {attendance.year}"] = monthly_attendance_data.get(f"{attendance.month} {attendance.year}", 0) + 1
         
-        plot_data: list[tuple[str, list[float]]] = []
-        for date, month_time in date_months_mapping.items():
-            x_data = [date for date, _ in month_time]
-            months_data = [(((self.data.prefect_cit.hour - t.hour) * 60) + (self.data.prefect_cit.min - t.min) + ((self.data.prefect_cit.hour - t.hour) / 60)) for _, t in month_time]
-            plot_data.append((date, x_data, months_data))
+        weeks_data = [dt / self.staff_working_days[staff.id] * 100 for dt in weeks_data]
+        self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, (labels_data, weeks_data))
         
-        for index, (date, x, y) in enumerate(plot_data):
-            self.punctuality_widget.plot(x, y, label=date, marker='o', color=list(get_named_colors_mapping().values())[index])
+        y_plot_points = [index + (cit.in_minutes() - attendance.period.in_minutes()) for index, attendance in enumerate(staff.attendance) if attendance.is_check_in]
+        
+        self.punctuality_widget.plot(None, y_plot_points, marker='o', color=color)
+        
+        stats_widget, stats_layout = create_widget(None, QVBoxLayout)
+        chart_widget, chart_layout = create_widget(None, QVBoxLayout)
+        
+        stats_layout.addWidget(QLabel(f"<span style='font-weight: 500; color: #eeeeee;'>Attendance</span><b>:</b><span style='font-weight: 900; color: #ffffff;'> {str(int(sum(weeks_data) / (self.staff_working_days[staff.id] * len(weeks_data)) * 100)) + "%" if weeks_data else "No Data"}</span>"))
+        
+        chart_layout.addWidget(self.attendance_widget)
+        chart_layout.addWidget(self.punctuality_widget)
+        
+        self.main_layout.addWidget(LabeledField("Stats", stats_widget))
+        self.main_layout.addWidget(LabeledField("Graphs and Charts", chart_widget))
+        
 
 class CardScanScreenWidget(BaseExtraWidget):
     comm_signal = pySignal(str)

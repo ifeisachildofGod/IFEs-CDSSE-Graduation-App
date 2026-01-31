@@ -65,16 +65,19 @@ class TabViewWidget(QWidget):
     
     def get(self, tab_name: str, default: Any = ...):
         tab_widget = (self.stack.children() + [default])[next((i for i, b in enumerate(self.tab_buttons) if b.text() == tab_name), len(self.stack.children()))]
+        
         if type(tab_widget) == type(Ellipsis):
             raise KeyError(f'There is no tab named: "{tab_name}"')
         return tab_widget
     
     def index(self, widget: QWidget):
-        return next(i for i, w in enumerate(self.children()) if w == widget)
+        return next(i for i, w in enumerate(self.stack.children()) if w == widget)
     
-    def set_tab(self, tab_name: str):
-        print(tab_name)
-        self.tab_buttons[self.index(self.get(tab_name))].click()
+    def set_tab(self, tab: int | str):
+        if isinstance(tab, int) and tab >= len(self.tab_buttons):
+            self.stack.setCurrentIndex(tab)
+        else:
+            self.tab_buttons[self.index(self.get(tab)) if isinstance(tab, str) else tab].click()
     
     def _make_tab_clicked_func(self, index: int, clicked_func: Callable[[int, ], None] | None):
         self.tab_src_changed_func_mapping[self.tab_buttons[index].text()] = clicked_func
@@ -144,6 +147,8 @@ class LabeledField(QWidget):
     def __init__(self, title: str, inner_widget: QWidget, width_size_policy: QSizePolicy.Policy | None = None, height_size_policy: QSizePolicy.Policy | None = None, parent=None):
         super().__init__(parent)
         
+        self.inner_widget = inner_widget
+        
         if (width_size_policy, height_size_policy).count(None) != 2 :
             self.setSizePolicy(width_size_policy if width_size_policy is not None else QSizePolicy.Policy.Preferred,
                                height_size_policy if height_size_policy is not None else QSizePolicy.Policy.Preferred)
@@ -161,7 +166,7 @@ class LabeledField(QWidget):
         widget_layout = QVBoxLayout(self.widget)
         # widget_layout.setContentsMargins(5, 0, 5, 5)  # leave space for label
         widget_layout.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignLeft)
-        widget_layout.addWidget(inner_widget)
+        widget_layout.addWidget(self.inner_widget)
         
         # Stack label over the widget
         main_layout = QVBoxLayout(self)
@@ -174,6 +179,9 @@ class LabeledField(QWidget):
 
     def get_widget(self):
         return self.widget.findChild(QWidget)
+    
+    def addWidget(self, widget: QWidget, stretch: int = ..., alignment: Qt.AlignmentFlag = ...):
+        self.inner_widget.layout().addWidget(widget, stretch, alignment)
 
 class CharacterNameWidget(QWidget):
     def __init__(self, name: CharacterName):
@@ -214,127 +222,6 @@ class CharacterNameWidget(QWidget):
         self.main_layout.addWidget(LabeledField("Names", widget_2_1, height_size_policy=QSizePolicy.Policy.Maximum))
 
 
-class ThreshDial(QDial):
-    def __init__(self, parent=None, minimum:int=None, maximum:int=None, readonly=True, gradient_start_color=None, gradient_middle_color=None, gradient_end_color=None):
-        super().__init__(parent)
-        self.setMinimum(0 if minimum is None else minimum)
-        self.setMaximum(100 if maximum is None else maximum)
-        self.setNotchesVisible(True)
-        self.setWrapping(False)
-        
-        if readonly:
-            self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        
-        self.setStyleSheet("""
-            QDial {
-                background-color: """ + THEME_MANAGER.get_current_palette()["highlight"] + """;
-            }
-            QDial::groove {
-                background: transparent;
-            }
-            QDial::handle {
-                background-color: #00c896;
-                border: 2px solid #00ffcc;
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-            }
-        """)
-        
-        self.thresh_value = 0
-        
-        self.gradient_start_color = gradient_start_color
-        self.gradient_middle_color = gradient_middle_color
-        self.gradient_end_color = gradient_end_color
-    
-    def set_thresh_value(self, value: float | int):
-        self.thresh_value = value
-    
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # Draw outer gradient ring *around* the dial
-        center = self.rect().center().toPointF()
-        radius = min(self.width(), self.height()) // 2 - 5
-        gradient = QConicalGradient(center, -90)
-        gradient.setColorAt(0.0, QColor("#15ff00") if self.gradient_start_color is None else QColor(self.gradient_start_color))
-        gradient.setColorAt(0.5, QColor("#c8c500") if self.gradient_middle_color is None else QColor(self.gradient_middle_color))
-        gradient.setColorAt(1.0, QColor("#ff0000") if self.gradient_end_color is None else QColor(self.gradient_end_color))
-        
-        pen = painter.pen()
-        pen.setWidth(5)
-        pen.setBrush(gradient)
-        painter.setPen(pen)
-        
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawArc(
-            int(center.x() - radius),
-            int(center.y() - radius),
-            int(radius * 2),
-            int(radius * 2),
-            0 * 16,
-            360 * 16
-        )
-        
-        thresh_indicator_radius = 2
-        
-        pen = painter.pen()
-        pen.setWidth(5)
-        pen.setBrush(QColor(THEME_MANAGER.get_current_palette()["prefect"]))
-        painter.setPen(pen)
-        
-        angle_offset = 30
-        max_turn = (360 - (angle_offset * 2))
-        angle = -(self.thresh_value - self.minimum()) * max_turn / (self.maximum() - self.minimum())
-        angle += 270 - angle_offset
-        angle = angle % 360
-        
-        thresh_radius = radius - thresh_indicator_radius - 5
-        
-        painter.drawEllipse(
-            int(center.x() + thresh_radius * math.cos(math.radians(angle))),
-            int(center.y() - thresh_radius * math.sin(math.radians(angle))),
-            int(thresh_indicator_radius * 2),
-            int(thresh_indicator_radius * 2)
-        )
-
-
-
-class SonarCanvas(FigureCanvas):
-    def __init__(self):
-        fig = Figure(figsize=(6, 6), dpi=100)
-        self.ax = fig.add_subplot(111, projection='polar')
-        
-        self.initialize()
-        super().__init__(fig)
-    
-    def initialize(self):
-        self.ax.set_theta_zero_location('N')
-        self.ax.set_theta_direction(-1)
-    
-    def set_limit(self, ylim: int):
-        self.ax.set_ylim(0, ylim)
-    
-    def clear(self):
-        self.ax.clear()
-    
-    def draw_circle(self, distance: int, **kwargs):
-        self.initialize()
-        
-        angles = numpy.linspace(0, 360, 180)
-        angles_rad = numpy.deg2rad(angles)
-        
-        self.ax.scatter(angles_rad, [distance for _ in range(len(angles_rad))], **kwargs)
-    
-    def update_sonar_data(self, angles_deg, distances, **kwargs):
-        self.initialize()
-        
-        angles_rad = numpy.deg2rad(angles_deg)
-        self.ax.scatter(angles_rad, distances, **kwargs)
-        self.draw()
 
 class BarChartCanvas(FigureCanvas):
     def __init__(self, title: str, x_label: str, y_label: str):
@@ -368,8 +255,13 @@ class GraphCanvas(FigureCanvas):
         self.axes.set_ylabel(y_label)
     
     def plot(self, x, y, **kwargs):
-        self.axes.plot(x, y, **kwargs)
-        self.axes.legend()
+        if x is not None:
+            self.axes.plot(x, y, **kwargs)
+        else:
+            self.axes.plot(y, **kwargs)
+        
+        if y:
+            self.axes.legend()
         self.draw()
 
 
@@ -417,6 +309,9 @@ class BarWidget(QWidget):
         self.bar_canvas.bar(data[0], data[1], display_values=True, color=color, edgecolor="black")
         
         self.main_keys_layout.addWidget(keys_widget, alignment=Qt.AlignmentFlag.AlignLeft)
+    
+    def clear(self):
+        self.bar_canvas.axes.clear()
 
 class GraphWidget(QWidget):
     def __init__(self, title: str, x_label: str, y_label: str):
@@ -436,40 +331,7 @@ class GraphWidget(QWidget):
     
     def plot(self, x, y, **kwargs):
         self.graph.plot(x, y, **kwargs)
-
-class SonarWidget(QWidget):
-    def __init__(self):
-        super().__init__()
-        
-        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-        
-        layout = QVBoxLayout(self)
-        
-        self.container = QWidget()
-        self.main_layout = QVBoxLayout()
-        self.container.setLayout(self.main_layout)
-        
-        layout.addWidget(self.container)
-        
-        self.sonar = SonarCanvas()
-        
-        self.main_layout.addWidget(self.sonar)
-        
-        self.latest_angles = None
-        self.latest_distances = None
     
-    def update_sonar(self, angles, distances):
-        self.latest_angles = angles
-        self.latest_distances = distances
-        
-        self.sonar.clear()
-        if None not in (self.latest_angles, self.latest_distances):
-            self.sonar.update_sonar_data(self.latest_angles, self.latest_distances, c='green', s=10)
-        self.sonar.draw()
-    
-    def update_sonar_limit(self, value: int):
-        self.sonar.set_limit(value)
-        self.sonar.draw()
-
-
+    def clear(self):
+        self.graph.axes.clear()
 

@@ -1,20 +1,5 @@
 from imports import *
-
-DAYS_OF_THE_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-MONTHS_OF_THE_YEAR = {
-    "January": 31,
-    "February": 29,
-    "March": 31,
-    "April": 30,
-    "May": 31,
-    "June": 30,
-    "July": 31,
-    "August": 31,
-    "September": 30,
-    "October": 31,
-    "November": 30,
-    "December": 31,
-}
+from data.time_data_objects import *
 
 def is_check_in(t: Time, cin: Time, cout: Time):
     cit_diff = math.fabs((cin.hour - t.hour) * 60 + (cin.min - t.min) + (cin.sec - t.sec) / 60)
@@ -22,7 +7,7 @@ def is_check_in(t: Time, cin: Time, cout: Time):
     
     return cit_diff < cot_diff
 
-def get_attendance_time_interval(min_timeline_dates, max_timeline_dates):
+def get_attendance_time_interval(min_timeline_dates: Period, max_timeline_dates: Period):
     interval = None
     start_days = None
     end_days = None
@@ -36,7 +21,7 @@ def get_attendance_time_interval(min_timeline_dates, max_timeline_dates):
         if start_days is not None and end_days is not None:
             diff = end_days - start_days
             week_amt = int(diff / 7)
-            interval = week_amt, (week_amt % 7);
+            interval = week_amt, (week_amt % 7)
             break
     
     return interval
@@ -107,16 +92,16 @@ class FileManager:
         # Hooks: user-defined callbacks for file read/write
         self.save_callback: Optional[Callable[[str | None], str]] = None
         self.open_callback: Optional[Callable[[], None] | Callable[[str, Any], None]] = None
-        self.load_callback: Optional[Callable[[str], Any]] = None
+        self.load_callback: Optional[Callable[[], Any]] = None
 
-    def set_callbacks(self, save: Callable[[str | None], None], open_: Callable[[], None] | Callable[[str, Any], None], load: Callable[[str], Any]):
+    def set_callbacks(self, save: Callable[[str | None], None], open_: Callable[[], None] | Callable[[str, Any], None], load: Callable[[], Any]):
         self.save_callback = save
         self.open_callback = open_
         self.load_callback = load
     
     def get_file_data(self):
         if self.current_path:
-            return self.load_callback(self.current_path)
+            return self.load_callback()
     
     def new(self):
         self.current_path = None

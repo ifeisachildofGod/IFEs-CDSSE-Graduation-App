@@ -1,12 +1,5 @@
 
 from dataclasses import dataclass
-
-@dataclass
-class Time:
-    hour: int
-    min: int
-    sec: float
-
 @dataclass
 class CharacterName:
     sur: str
@@ -14,13 +7,9 @@ class CharacterName:
     middle: str
     abrev: str
     other: str | None = None
-
-@dataclass
-class SensorMeta:
-    sensor_type: str
-    model: str
-    version: str
-    developer: str
+    
+    def full_name(self):
+        return f"{self.sur} {self.first}, {self.middle}"
 
 @dataclass
 class Department:

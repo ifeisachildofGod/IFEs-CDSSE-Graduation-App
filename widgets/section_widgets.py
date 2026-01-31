@@ -1,7 +1,24 @@
-
+from itertools import combinations
+from PyQt6.QtWidgets import QComboBox
 from widgets.section_sub_widgets import *
+from data.time_data_objects import *
 
 class BaseListWidget(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        
+        widget = QWidget()
+        self.main_layout = QVBoxLayout()
+        widget.setLayout(self.main_layout)
+        
+        self._layout = QVBoxLayout()
+        self.setLayout(self._layout)
+    
+    # Category name is here to avoid edge cases
+    def addWidget(self, widget: QWidget, category_name: str | None = None, stretch: int = ..., alignment: Qt.AlignmentFlag = ...):
+        self.main_layout.addWidget(widget, stretch, alignment)
+
+class BaseScrollListWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
         
@@ -12,13 +29,33 @@ class BaseListWidget(QWidget):
         self.scroll_widget.setWidget(widget)
         self.main_layout = QVBoxLayout(widget)
         
-        layout = QVBoxLayout(self)
-        self.setLayout(layout)
+        self._layout = QVBoxLayout(self)
+        self.setLayout(self._layout)
         
-        layout.addWidget(self.scroll_widget)
+        self._layout.addWidget(self.scroll_widget)
+    
+    def addWidget(self, widget: QWidget, stretch: int = ..., alignment: Qt.AlignmentFlag = ...):
+        self.main_layout.addWidget(widget, stretch, alignment)
 
+class _FilterCategoriesWidget(BaseListWidget):
+    def __init__(self):
+        super().__init__()
+        
+        self.category_widgets = {}
+    
+    def addWidget(self, widget: "AttendanceWidget", category_name: str, stretch: int = ..., alignment: Qt.AlignmentFlag = ...):
+        if category_name not in self.category_widgets:
+            cat_widg = QWidget()
+            cat_layout = QVBoxLayout()
+            cat_widg.setLayout(cat_layout)
+            
+            self.category_widgets[category_name] = LabeledField(category_name, cat_widg)
+            
+            super().addWidget(self.category_widgets[category_name])
+        
+        self.category_widgets[category_name].addWidget(widget, stretch, alignment)
 
-class AttendanceWidget(BaseListWidget):
+class AttendanceWidget(BaseScrollListWidget):
     comm_signal = pySignal(str)
     
     def __init__(self, parent_widget: TabViewWidget, data: AppData, attendance_chart_widget: "AttendanceBarWidget", punctuality_graph_widget: "PunctualityGraphWidget", comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal):
@@ -36,7 +73,14 @@ class AttendanceWidget(BaseListWidget):
         
         self.create_time_labels()
         
-        _, self.attendance_layout = create_widget(self.main_layout, QVBoxLayout)
+        self.filter_views = {}
+        
+        self.filter_data = [(["All", "Prefects", "Teachers"], 0), (["All", "Today", "This week", "This month", "This year"], 0)]
+        
+        filter_combinations = [comb for comb in list(combinations(range(len(sorted(self.filter_data)[-1][0])), len(self.filter_data))) if next((False for i, c in enumerate(comb) if c >= len(self.filter_data[i])), True)]
+        
+        for comb in filter_combinations:
+            self.filter_views[comb] = self._determine_filter_widget_type(comb)
         
         for attendance in self.data.attendance_data:
             self._add_attendance_log(attendance)
@@ -45,10 +89,100 @@ class AttendanceWidget(BaseListWidget):
         
         self.comm_signal.connect(self.add_new_attendance_log)
         self.comm_system.set_data_point("IUD", self.comm_signal)
+            
+        for i, widget in enumerate(self.filter_views.values()):
+            widget.setVisible(i == 0)
+        
+        filter_widget, filter_layout = create_widget(None, QHBoxLayout)
+        
+        for index, (f_data, _) in enumerate(self.filter_data):
+            filter = QComboBox()
+            filter.addItems(f_data)
+            filter.currentIndexChanged.connect(self._make_c_change_func(index))
+            filter_layout.addWidget(filter, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        self._layout.insertWidget(0, filter_widget, alignment=Qt.AlignmentFlag.AlignRight)
+    
+    def _determine_category_name(self, comb: tuple, entry: AttendanceEntry):
+        match comb[1]:
+            case 0:
+                return
+            case 1:
+                return
+            case 2:
+                return entry.period.day
+            case 3:
+                return f"{entry.period.day}, {positionify(entry.period.date)} {entry.period.month}"
+            case 4:
+                day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                
+                months_list = list(MONTHS_OF_THE_YEAR)
+                
+                if entry.period.date - day_index < 1:
+                    start_month = months_list[months_list.index(entry.period.month) - 1]
+                    start_date = MONTHS_OF_THE_YEAR[start_month] + (entry.period.date - day_index)
+                else:
+                    start_month = entry.period.month
+                    start_date = entry.period.date - day_index
+                
+                if entry.period.date + (6 - day_index) > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    if months_list.index(entry.period.month) + 1 < len(months_list):
+                        end_month = months_list[months_list.index(entry.period.month) + 1]
+                        end_date = (entry.period.date + (6 - day_index)) % MONTHS_OF_THE_YEAR[entry.period.month]
+                    else:
+                        end_month = entry.period.month
+                        end_date = MONTHS_OF_THE_YEAR[end_month]
+                else:
+                    end_month = entry.period.month
+                    end_date = entry.period.date + (6 - day_index)
+                
+                return f"{positionify(start_date)} {start_month} - {positionify(end_date)} {end_month}, {entry.period.year}"
+        
+        raise Exception()
+    
+    def _determine_filter_widget_type(self, comb: tuple):
+        return BaseListWidget() if comb[1] in (0, 1) else _FilterCategoriesWidget()
+    
+    def _make_c_change_func(self, index: int):
+        def c_change(i):
+            self.filter(*tuple((i if index == s_i else None) for s_i in range(len(self.filter_data))))
+        
+        return c_change
+    
+    def _assess_filter(a_obj: BaseAttendanceWidget, comb: tuple):
+        i1, i2 = comb
+        
+        curr_day = Period.ctime_to_period(time.ctime())
+        
+        a_types = [(AttendancePrefectWidget, AttendanceTeacherWidget), AttendancePrefectWidget, AttendanceTeacherWidget]
+        
+        if isinstance(a_obj, a_types[i1]):
+            if i2 == 0:
+                return True
+            elif i2 == 1:
+                return a_obj.data.period.date == curr_day.date
+            elif i2 == 2:
+                obj_day_index = DAYS_OF_THE_WEEK.index(a_obj.data.period.day)
+                cur_day_index = DAYS_OF_THE_WEEK.index(curr_day.day)
+                
+                return cur_day_index - obj_day_index == curr_day.date - a_obj.data.period.date
+            elif i2 == 3:
+                return curr_day.month == a_obj.data.period.month
+            elif i2 == 4:
+                return curr_day.year == a_obj.data.period.year
+        
+        return False
+    
+    def filter(self, *args):
+        for i, index in enumerate(args):
+            if index is not None:
+                self.filter_data[i][1] = index
+        
+        for key, widget in self.filter_views.items():
+            widget.setVisible(key == tuple(i for _, i in self.filter_data))
     
     def create_time_labels(self):
         _, time_layout = create_widget(self.main_layout, QHBoxLayout)
-        
         
         teacher_widget, teacher_layout = create_widget(self.main_layout, QHBoxLayout)
         
@@ -69,7 +203,6 @@ class AttendanceWidget(BaseListWidget):
         
         teacher_layout.addWidget(cit_teacher_widget)
         teacher_layout.addWidget(cot_teacher_widget)
-        
         
         
         prefect_widget, prefect_layout = create_widget(self.main_layout, QHBoxLayout)
@@ -99,10 +232,12 @@ class AttendanceWidget(BaseListWidget):
     def _add_attendance_log(self, attendance_entry: AttendanceEntry):
         if isinstance(attendance_entry.staff, Teacher):
             widget = AttendanceTeacherWidget(attendance_entry)
+            
             self.attendance_chart_widget.teacher_data_changed()
             self.punctuality_graph_widget.teacher_data_changed()
         elif isinstance(attendance_entry.staff, Prefect):
             widget = AttendancePrefectWidget(attendance_entry)
+            
             self.attendance_chart_widget.prefect_data_changed()
             self.punctuality_graph_widget.prefect_data_changed()
         else:
@@ -110,7 +245,9 @@ class AttendanceWidget(BaseListWidget):
         
         self.saved_state_changed.emit(False)
         
-        self.attendance_layout.addWidget(widget)
+        for comb, m_widget in self.filter_views.items():
+            if self._assess_filter(attendance_entry, comb):
+                m_widget.addWidget(widget, self._determine_category_name(comb, widget.data))
     
     def add_new_attendance_log(self, IUD: str):
         staff = next((prefect for _, prefect in self.data.prefects.items() if prefect.IUD == IUD), None)
@@ -118,25 +255,17 @@ class AttendanceWidget(BaseListWidget):
             staff = next((teacher for _, teacher in self.data.teachers.items() if teacher.IUD == IUD), None)
         
         if staff is not None:
-            day, month, date, t, year = time.ctime().split()
-            hour, min, sec = t.split(":")
+            period = Period.ctime_to_period(time.ctime())
             
-            day = next((dotw for dotw in DAYS_OF_THE_WEEK if day in dotw))
-            month = next((moty for moty in MONTHS_OF_THE_YEAR if month in moty))
-            
-            t_ = Time(int(hour), int(min), int(sec))
-            
-            another_present = next((True for entry in staff.attendance if entry.date == int(date) and entry.month == month and entry.year == int(year)), False)
+            another_present = next((True for entry in staff.attendance if entry.date == period.date and entry.month == period.month and entry.year == period.year), False)
             ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
             
-            is_ci = is_check_in(t_, ct_data[0], ct_data[1])
+            is_ci = is_check_in(period.time, ct_data[0], ct_data[1])
             
             if another_present and is_ci:
                 return
             
-            entry = AttendanceEntry(t_, day, int(date), month, int(year), is_ci, staff)
-            
-            self.comm_system.send_message(f"setId:{staff.name.abrev},{is_ci},{hour}'{min}")
+            entry = AttendanceEntry(period, staff, is_ci)
             
             self.data.attendance_data.append(entry)
             staff.attendance.append(entry)
@@ -162,38 +291,108 @@ class AttendanceWidget(BaseListWidget):
         return super().keyPressEvent(a0)
 
 
-class PrefectStaffListWidget(BaseListWidget):
+class StaffListWidget(BaseScrollListWidget):
     def __init__(self, parent_widget: TabViewWidget, data: AppData, tab_name: str, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
         super().__init__()
+        prefects = sorted([(k, v) for k, v in data.prefects.items()], key=lambda params: params[1].name.full_name())
+        teachers = sorted([(k, v) for k, v in data.teachers.items()], key=lambda params: params[1].name.full_name())
+        boths = sorted([(k, v) for k, v in data.prefects.items()] + [(k, v) for k, v in data.teachers.items()], key=lambda params: params[1].name.full_name())
         
-        for _, prefect in data.prefects.items():
-            self.main_layout.addWidget(StaffListPrefectWidget(parent_widget, data, prefect, tab_name, comm_system, card_scanner_index, staff_data_index))
+        prefects_widget = QWidget()
+        prefects_layout = QVBoxLayout()
+        prefects_widget.setLayout(prefects_layout)
         
-        self.main_layout.addStretch()
+        for _, prefect in prefects:
+            prefects_layout.addWidget(StaffListPrefectEntryWidget(parent_widget, data, prefect, comm_system, card_scanner_index, staff_data_index))
+        
+        teachers_widget = QWidget()
+        teachers_layout = QVBoxLayout()
+        teachers_widget.setLayout(teachers_layout)
+        
+        for _, teacher in teachers:
+            teachers_layout.addWidget(StaffListTeacherEntryWidget(parent_widget, data, teacher, comm_system, card_scanner_index, staff_data_index))
+        
+        boths_widget = QWidget()
+        boths_layout = QVBoxLayout()
+        boths_widget.setLayout(boths_layout)
+        
+        for _, both in boths:
+            if isinstance(both, Teacher):
+                boths_layout.addWidget(StaffListTeacherEntryWidget(parent_widget, data, both, comm_system, card_scanner_index, staff_data_index))
+            else:
+                boths_layout.addWidget(StaffListPrefectEntryWidget(parent_widget, data, both, comm_system, card_scanner_index, staff_data_index))
+        
+        self.widgets = {
+            "All": boths_widget,
+            "Prefects": prefects_widget,
+            "Teachers": teachers_widget,
+        }
+        
+        for i, staff_widget in enumerate(self.widgets.values()):
+            staff_widget.setVisible(i == 0)
+            self.main_layout.addWidget(staff_widget)
+        
+        filters = QComboBox()
+        filters.addItems(list(self.widgets))
+        filters.currentIndexChanged.connect(self.filter)
+        
+        self._layout.insertWidget(0, filters, alignment=Qt.AlignmentFlag.AlignRight)
+    
+    def filter(self, index: int):
+        for i, staff_widget in enumerate(self.widgets.values()):
+            staff_widget.setVisible(index == i)
 
-class TeacherStaffListWidget(BaseListWidget):
-    def __init__(self, parent_widget: TabViewWidget, data: AppData, tab_name: str, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
-        super().__init__()
-        
-        for _, teacher in data.teachers.items():
-            self.main_layout.addWidget(StaffListTeacherWidget(parent_widget, data, teacher, tab_name, comm_system, card_scanner_index, staff_data_index))
-        
-        self.main_layout.addStretch()
-
-
-class AttendanceBarWidget(BaseListWidget):
+class AttendanceBarWidget(BaseScrollListWidget):
     def __init__(self, data: AppData):
         super().__init__()
         
         self.data = data
         
-        self.prefect_data_changed()
-        self.teacher_data_changed()
+        # boths_widget = QWidget()
+        # boths_layout = QVBoxLayout()
+        # boths_widget.setLayout(boths_layout)
+        
+        # boths_layout.addWidget(prefect_widget)
+        # boths_layout.addWidget(teacher_widget)
+        
+        self.prefect_info_widget = BarWidget("Cummulative Prefect Attendance", "Prefect Names", "Yearly Attendance (%)")
+        dtd_widget, dtd_layout = create_widget(None, QVBoxLayout)
+        self.teacher_dep_widgets = {}
+        
+        _checked_departments = []
+        for teacher in self.data.teachers.values():
+            if teacher.department.id not in _checked_departments:
+                dep_name = teacher.department.id
+                
+                widget = BarWidget(f"Cummulative {dep_name} Attendance", f"{dep_name} Department Teachers", "Yearly Attendance (%)")
+                
+                self.teacher_dep_widgets[teacher.department.id] = widget
+                dtd_layout.addWidget(widget)
+                
+                _checked_departments.append(teacher.department.id)
+        
+        self.widgets = {
+            "Prefects": LabeledField("Prefect Attendance", self.prefect_info_widget, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum),
+            "Teachers": LabeledField("Departmental Attendance", dtd_widget, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum),
+            # "Both": boths_widget
+        }
+        
+        for i, staff_widget in enumerate(self.widgets.values()):
+            staff_widget.setVisible(i == 0)
+            self.main_layout.addWidget(staff_widget)
+        
+        filters = QComboBox()
+        filters.addItems(list(self.widgets))
+        filters.currentIndexChanged.connect(self.filter)
+        
+        self._layout.insertWidget(0, filters, alignment=Qt.AlignmentFlag.AlignRight)
+    
+    def filter(self, index: int):
+        for i, staff_widget in enumerate(self.widgets.values()):
+            staff_widget.setVisible(index == i)
     
     def prefect_data_changed(self):
-        if hasattr(self, "prefect_attendance_widget"):
-            self.main_layout.removeWidget(self.prefect_attendance_widget)
-            self.prefect_attendance_widget.deleteLater()
+        self.prefect_info_widget.clear()
         
         prefect_names = []
         prefects_attendance_data = []
@@ -209,23 +408,9 @@ class AttendanceBarWidget(BaseListWidget):
                 prefects_attendance_data.append(percentage_attendance)
         
         if prefects_attendance_data:
-            prefect_info_widget = BarWidget("Cummulative Prefect Attendance", "Prefect Names", "Yearly Attendance (%)")
-            prefect_info_widget.add_data("Prefects", THEME_MANAGER.get_current_palette()["prefect"], (prefect_names, prefects_attendance_data))
-            
-            self.prefect_attendance_widget = LabeledField("Prefect Attendance", prefect_info_widget, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-        else:
-            label = QLabel("No Prefect Attendance Data")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            
-            self.prefect_attendance_widget = LabeledField("Prefect Attendance", label, height_size_policy=QSizePolicy.Policy.Maximum)
-            
-        self.main_layout.addWidget(self.prefect_attendance_widget)
+            self.prefect_info_widget.add_data("Prefects", THEME_MANAGER.get_current_palette()["prefect"], (prefect_names, prefects_attendance_data))
     
     def teacher_data_changed(self):
-        if hasattr(self, "teacher_attendance_widget"):
-            self.main_layout.removeWidget(self.teacher_attendance_widget)
-            self.teacher_attendance_widget.deleteLater()
-        
         teacher_data: dict[str, tuple[str, tuple[list[str], list[int]]]] = {}
         
         for staff_attendance_data in self.data.attendance_data:
@@ -244,22 +429,10 @@ class AttendanceBarWidget(BaseListWidget):
                     teacher_data[staff_attendance_data.staff.department.id] = (staff_attendance_data.staff.department.name, [(staff_attendance_data.staff.name), percentage_attendance])
         
         if teacher_data:
-            dtd_widget, dtd_layout = create_widget(None, QVBoxLayout)
-            # dtd_widget.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-            
-            for index, (_, (name, data)) in enumerate(teacher_data.items()):
-                widget = BarWidget(f"Cummulative {name} Attendance", f"{name} Department Teachers", "Yearly Attendance (%)")
+            for index, (dep_id, (name, data)) in enumerate(teacher_data.items()):
+                widget = self.teacher_dep_widgets[dep_id]
+                widget.clear()
                 widget.add_data(name, list(get_named_colors_mapping().values())[index], data)
-                
-                dtd_layout.addWidget(widget)
-            
-            self.teacher_attendance_widget = LabeledField("Departmental Attendance", dtd_widget, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-            self.main_layout.addWidget(self.teacher_attendance_widget)
-        else:
-            label = QLabel("No Teacher Attendance Data")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.teacher_attendance_widget = LabeledField("Teacher Attendance", label, height_size_policy=QSizePolicy.Policy.Maximum)
-            self.main_layout.addWidget(self.teacher_attendance_widget, alignment=Qt.AlignmentFlag.AlignTop)
     
     def get_percentage_attendance(self, attendance: list[AttendanceEntry], valid_attendance_days: list[str], interval: tuple[int, int]):
         remainder_days_amt = sum([day in valid_attendance_days for day in DAYS_OF_THE_WEEK[:interval[1] + 1]])
@@ -269,46 +442,60 @@ class AttendanceBarWidget(BaseListWidget):
         
         return percentage_attendance
 
-class PunctualityGraphWidget(BaseListWidget):
+
+class PunctualityGraphWidget(BaseScrollListWidget):
     def __init__(self, data: AppData):
         super().__init__()
         
         self.data = data
         
-        self.prefect_data_changed()
-        self.teacher_data_changed()
+        self.prefect_info_widget = GraphWidget("Prefects Punctuality Graph", "Time Interval (Weeks)", "Punctuality (Hours)")
+        dtd_widget, dtd_layout = create_widget(None, QVBoxLayout)
+        
+        _checked_departments = []
+        for teacher in self.data.teachers.values():
+            if teacher.department.id not in _checked_departments:
+                dep_name = teacher.department.name
+                
+                dep_info_widget = GraphWidget(f"{dep_name} Department Punctuality Graph", "Time Interval (Weeks)", "Punctuality (Hours)")
+                
+                dtd_layout.addWidget(dep_info_widget)
+                
+                _checked_departments.append(teacher.department.id)
+        
+        self.widgets = {
+            "Prefects": LabeledField("Prefect Punctuality", self.prefect_info_widget),
+            "Teachers": LabeledField("Departmental Punctuality", dtd_widget, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum),
+            # "Both": boths_widget
+        }
+        
+        for i, staff_widget in enumerate(self.widgets.values()):
+            staff_widget.setVisible(i == 0)
+            self.main_layout.addWidget(staff_widget)
+        
+        filters = QComboBox()
+        filters.addItems(list(self.widgets))
+        filters.currentIndexChanged.connect(self.filter)
+        
+        self._layout.insertWidget(0, filters, alignment=Qt.AlignmentFlag.AlignRight)
+    
+    def filter(self, index: int):
+        for i, staff_widget in enumerate(self.widgets.values()):
+            staff_widget.setVisible(index == i)
     
     def prefect_data_changed(self):
-        if hasattr(self, "prefect_punctuality_widget"):
-            self.main_layout.removeWidget(self.prefect_punctuality_widget)
-            self.prefect_punctuality_widget.deleteLater()
-        
         prefects_data = {}
+        self.prefect_info_widget.clear()
         
         for staff_attendance_data in self.data.attendance_data:
             if isinstance(staff_attendance_data.staff, Prefect):
                 prefects_data[staff_attendance_data.staff.IUD] = self.get_punctuality_data(staff_attendance_data.staff)
         
         if prefects_data:
-            prefect_info_widget = GraphWidget("Prefects Punctuality Graph", "Time Interval (Weeks)", "Punctuality (Hours)")
-            
-            for index, (_, (name, prefect_data)) in enumerate(prefects_data.items()):
-                prefect_info_widget.plot([i + 1 for i in range(len(prefect_data))], prefect_data, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
-            
-            self.prefect_punctuality_widget = LabeledField("Prefect Punctuality", prefect_info_widget)
-        else:
-            label = QLabel("No Prefect Punctuality Data")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            
-            self.prefect_punctuality_widget = LabeledField("Prefect Punctuality", label, height_size_policy=QSizePolicy.Policy.Maximum)
-            
-        self.main_layout.insertWidget(0, self.prefect_punctuality_widget)
+            for index, (name, prefect_data) in enumerate(prefects_data.values()):
+                self.prefect_info_widget.plot(None, prefect_data, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
     
     def teacher_data_changed(self):
-        if hasattr(self, "teacher_punctuality_widget"):
-            self.main_layout.removeWidget(self.teacher_punctuality_widget)
-            self.teacher_punctuality_widget.deleteLater()
-        
         teacher_data = {}
         
         for staff_attendance_data in self.data.attendance_data:
@@ -322,18 +509,13 @@ class PunctualityGraphWidget(BaseListWidget):
                 dep_info_widget = GraphWidget(f"{dep_name} Department Punctuality Graph", "Time Interval (Weeks)", "Punctuality (Hours)")
                 
                 for index, (_, (name, info)) in enumerate(dep_data.items()):
-                    dep_info_widget.plot([i + 1 for i in range(len(info))], info, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
+                    dep_info_widget.plot(None, info, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
                 
                 dtd_layout.addWidget(dep_info_widget)
             
             self.teacher_punctuality_widget = LabeledField("Departmental Punctuality", dtd_widget, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-        else:
-            label = QLabel("No Teacher Punctuality Data")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            
-            self.teacher_punctuality_widget = LabeledField("Departmental Punctuality", label, height_size_policy=QSizePolicy.Policy.Maximum)
-            
-        self.main_layout.addWidget(self.teacher_punctuality_widget)
+        
+        return self.teacher_punctuality_widget
     
     def get_punctuality_data(self, staff: Staff):
         prefects_plot_data: list[float] = []
@@ -345,16 +527,16 @@ class PunctualityGraphWidget(BaseListWidget):
         
         # for attendance in staff.attendance:
         #     if attendance.is_check_in:
-        #         if ((DAYS_OF_THE_WEEK.index(attendance.day) > DAYS_OF_THE_WEEK.index(prev_day)) or
-        #             (prev_dt != attendance.date and
-        #             DAYS_OF_THE_WEEK.index(attendance.day) == DAYS_OF_THE_WEEK.index(prev_day))
+        #         if ((DAYS_OF_THE_WEEK.index(attendance.period.day) > DAYS_OF_THE_WEEK.index(prev_day)) or
+        #             (prev_dt != attendance.period.date and
+        #             DAYS_OF_THE_WEEK.index(attendance.period.day) == DAYS_OF_THE_WEEK.index(prev_day))
         #             ):
-        #             weeks.append([attendance.time])
+        #             weeks.append([attendance.period.time])
         #         else:
-        #             weeks[-1].append(attendance.time)
+        #             weeks[-1].append(attendance.period.time)
                 
-        #         prev_day = attendance.day
-        #         prev_dt = attendance.date
+        #         prev_day = attendance.period.day
+        #         prev_dt = attendance.period.date
         
         # for week_time in weeks:
         #     all_puncuality_in_week = [(self.data.prefect_cit.hour - t.hour) * 60 + (self.data.prefect_cit.min - t.min) + (self.data.prefect_cit.sec - t.sec) * (1/60) for t in week_time]
@@ -363,166 +545,8 @@ class PunctualityGraphWidget(BaseListWidget):
         
         for attendance in staff.attendance:
             if attendance.is_check_in:
-                prefects_plot_data.append((self.data.prefect_cit.hour - attendance.time.hour) * 60 + (self.data.prefect_cit.min - attendance.time.min) + (self.data.prefect_cit.sec - attendance.time.sec) * (1/60))
+                prefects_plot_data.append(self.data.prefect_cit.in_minutes())
         
         return staff.name.abrev, prefects_plot_data
-
-
-
-class _SensorWidget(QWidget):
-    comm_signal = pySignal(int)
-    
-    def __init__(self, data: AppData, sensor: Sensor, saved_state_changed: pyBoundSignal, minimum:int=None, maximum:int=None, gradient_start_color=None, gradient_middle_color=None, gradient_end_color=None):
-        super().__init__()
-        self.data = data
-        self.sensor = sensor
-        self.saved_state_changed = saved_state_changed
-        
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        
-        self.container = QWidget()
-        
-        self.main_layout = QVBoxLayout()
-        self.container.setLayout(self.main_layout)
-        
-        self.reading_dial = ThreshDial(self.container, minimum, maximum, gradient_start_color=gradient_start_color, gradient_middle_color=gradient_middle_color, gradient_end_color=gradient_end_color)
-        self.reading_dial.setFixedHeight(100)
-        
-        slider_widget, slider_layout = create_widget(None, QHBoxLayout)
-        sub_slider_widget, sub_slider_layout = create_widget(None, QVBoxLayout)
-        
-        self.thresh_slider = QSlider(Qt.Orientation.Horizontal)
-        self.thresh_slider.setValue(self.data.variables.get(self.sensor.name + " thresh", 0))
-        self.thresh_slider.valueChanged.connect(self.thresh_slider_moved)
-        
-        self.thresh_value_label = QLabel(str(self.thresh_slider.value()))
-        
-        sub_slider_layout.addWidget(self.thresh_slider)
-        sub_slider_layout.addWidget(self.thresh_value_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        slider_layout.addWidget(QLabel(str(self.reading_dial.minimum())))
-        slider_layout.addWidget(sub_slider_widget)
-        slider_layout.addWidget(QLabel(str(self.reading_dial.maximum())))
-        
-        self.comm_signal.connect(self.reading_dial_updated)
-        self.sensor.comm_system.set_data_point(self.sensor.name, self.comm_signal)
-        self.main_layout.addWidget(self.reading_dial)
-        self.main_layout.addWidget(slider_widget)
-        
-        layout.addWidget(LabeledField(self.sensor.name, self.container, QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum))
-    
-    def reading_dial_updated(self, value: int):
-        self.reading_dial.setValue(value)
-    
-    def thresh_slider_moved(self, value: int):
-        self.data.variables[self.sensor.name] = value
-        self.saved_state_changed.emit(False)
-        
-        new_thresh = value * self.reading_dial.maximum() / 100
-        
-        self.reading_dial.set_thresh_value(new_thresh)
-        self.thresh_value_label.setText(str(new_thresh))
-        
-        self.reading_dial.update()
-    
-    def connection_changed(self, state: bool):
-        not_connected = not state
-        
-        self.container.setDisabled(not_connected)
-        if not_connected:
-            self.container.setToolTip(f"No device connection")
-        else:
-            self.container.setToolTip("")
-            self.sensor.comm_system.send_message(f"{self.sensor.name}:{self.thresh_slider.value()}")
-    
-
-class SensorsWidget(QWidget):
-    fire_state_comm_signal = pySignal(int)
-    
-    def __init__(self, data: AppData, comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal):
-        super().__init__()
-        self.data = data
-        self.comm_system = comm_system
-        self.saved_state_changed = saved_state_changed
-        
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        
-        self.container, self.main_layout = create_scrollable_widget(layout, QVBoxLayout)
-        
-        gas_widget, gas_layout = create_widget(None, QHBoxLayout)
-        ultrasonic_widget, ultrasonic_layout = create_widget(None, QHBoxLayout)
-        
-        self.gas1_widget = _SensorWidget(self.data, Sensor("Gas 1", self.comm_system), self.saved_state_changed, 0, 420)
-        self.gas2_widget = _SensorWidget(self.data,Sensor("Gas 2", self.comm_system), self.saved_state_changed, 0, 420)
-        
-        self.gas1_widget.thresh_slider.valueChanged.connect(self.gas_thresh_changed)
-        self.gas2_widget.thresh_slider.valueChanged.connect(self.gas_thresh_changed)
-        
-        gas_layout.addWidget(self.gas1_widget, alignment=Qt.AlignmentFlag.AlignLeft)
-        gas_layout.addWidget(self.gas2_widget, alignment=Qt.AlignmentFlag.AlignRight)
-        
-        self.gas_labeled_field = LabeledField("Gas sensors", gas_widget)
-        
-        self.ultrasonic_cb = QCheckBox("Security activated")
-        self.ultrasonic_cb.clicked.connect(self.toogle_security)
-        
-        self.ultrasonic1_widget = _SensorWidget(self.data, Sensor("East", self.comm_system), self.saved_state_changed, 0, 300, gradient_start_color="red", gradient_middle_color="yellow", gradient_end_color="green")
-        self.ultrasonic2_widget = _SensorWidget(self.data, Sensor("South", self.comm_system), self.saved_state_changed, 0, 300, gradient_start_color="red", gradient_middle_color="yellow", gradient_end_color="green")
-        self.ultrasonic3_widget = _SensorWidget(self.data, Sensor("West", self.comm_system), self.saved_state_changed, 0, 300, gradient_start_color="red", gradient_middle_color="yellow", gradient_end_color="green")
-        
-        self.ultrasonic1_widget.thresh_slider.valueChanged.connect(self.ultrasonic_thresh_changed)
-        self.ultrasonic2_widget.thresh_slider.valueChanged.connect(self.ultrasonic_thresh_changed)
-        self.ultrasonic3_widget.thresh_slider.valueChanged.connect(self.ultrasonic_thresh_changed)
-        
-        ultrasonic_layout.addWidget(self.ultrasonic1_widget, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        ultrasonic_layout.addWidget(self.ultrasonic2_widget, alignment=Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignBottom)
-        ultrasonic_layout.addWidget(self.ultrasonic3_widget, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-        
-        self.ultasonic_labeled_field = LabeledField("Ultrasonic sensors", ultrasonic_widget)
-        
-        self.fire_text_widget = QLabel("FIRE!!! FIRE!!! FIRE!!!")
-        self.fire_text_widget.setStyleSheet("font-size: 50px; color: red;")
-        self.fire_text_widget.setVisible(False)
-        
-        self.fire_state_comm_signal.connect(self.fire_state_changed)
-        self.comm_system.set_data_point("Flame", self.fire_state_comm_signal)
-        
-        self.main_layout.addWidget(self.gas_labeled_field)
-        self.main_layout.addWidget(self.ultrasonic_cb, alignment=Qt.AlignmentFlag.AlignRight)
-        self.main_layout.addWidget(self.ultasonic_labeled_field)
-        self.main_layout.addWidget(self.fire_text_widget, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        self.ultrasonic_cb.click()
-        self.ultrasonic_cb.click()
-        
-        self.comm_system.connection_changed_signal.connect(self.connection_changed)
-    
-    def gas_thresh_changed(self, _):
-        self.comm_system.send_message(f"Gas:{self.gas1_widget.thresh_slider.value()},{self.gas2_widget.thresh_slider.value()}")
-    
-    def ultrasonic_thresh_changed(self, _):
-        self.comm_system.send_message(f"Ultrasonic:{self.ultrasonic1_widget.thresh_slider.value()},{self.ultrasonic2_widget.thresh_slider.value()},{self.ultrasonic2_widget.thresh_slider.value()}")
-    
-    def toogle_security(self, on: bool):
-        self.ultasonic_labeled_field.setDisabled(not on)
-        if self.comm_system.connected:
-            self.comm_system.send_message("SECURITY-ACTIVE" if on else "NOT-SECURITY-ACTIVE")
-    
-    def connection_changed(self, connected: bool):
-        self.gas_labeled_field.setDisabled(not connected)
-        self.ultrasonic_cb.setDisabled(not connected)
-        self.ultasonic_labeled_field.setDisabled(not connected)
-        
-        if not connected:
-            self.ultrasonic_cb.setToolTip("No device connection")
-        else:
-            self.ultrasonic_cb.setToolTip("")
-            self.toogle_security(self.ultrasonic_cb.isChecked())
-    
-    def fire_state_changed(self, value: bool):
-        self.fire_text_widget.setVisible(value)
-    
 
 

@@ -38,9 +38,9 @@ from matplotlib.colors import get_named_colors_mapping
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 
 # Native Imports
-from models.data_models import *
-from models.object_models import *
-from models.collection_data_models import *
+from data.metadata_objects import *
+from data.data_objects import *
+from data.main_data_objects import *
 
 
 

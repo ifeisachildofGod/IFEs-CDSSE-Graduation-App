@@ -1,7 +1,8 @@
 
 from typing import Any
 from dataclasses import dataclass
-from models.object_models import *
+from data.data_objects import Teacher, Prefect, AttendanceEntry
+from data.time_data_objects import Time, Period
 
 @dataclass
 class AppData:
@@ -11,13 +12,11 @@ class AppData:
     teacher_cot: Time
     prefect_cot: Time
     
-    teacher_timeline_dates: tuple[AttendanceEntry, AttendanceEntry]
-    prefect_timeline_dates: tuple[AttendanceEntry, AttendanceEntry]
+    teacher_timeline_dates: tuple[Period, Period]
+    prefect_timeline_dates: tuple[Period, Period]
     
     teachers: dict[str, Teacher]
     prefects: dict[str, Prefect]
-    
-    sonar_safety_value: int
     
     variables: dict[str, Any]
     

@@ -1,5 +1,14 @@
 {
     "teachers": {
+        "t_id1": ["$$Teacher$$", {
+            "id": "t_id1",
+            "IUD": "51232123A",
+            "name": ["$$CharacterName$$", {"sur": "Brandon", "first": "Chukwudi", "middle": "Joseph", "abrev": "Chukwudi", "other": null}],
+            "department": ["$$Department$$", {"id": "dep_id1", "name": "Physics"}],
+            "subjects": [["$$Subject$$", {"id": "subj_id1", "name": "Physics", "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}], "periods": [["Monday", 2], ["Wednesday", 2]]}]],
+            "img_path": "src/profile-images/p_id1.png",
+            "attendance": []
+        }]
         
     },
     "prefects": {
@@ -10,7 +19,7 @@
             "post_name": "Parade Commander",
             "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
             "img_path": "src/profile-images/p_id1.png",
-            "duties": {"Wednesday": ["Morning duties", "Assembly parade", "Cadet training"]},
+            "duties": {"Wednesday": ["Morning", "Assembly parade", "Cadet training"]},
             "attendance": []
         }],
         "p_id2": ["$$Prefect$$", {

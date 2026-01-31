@@ -30,13 +30,22 @@ class Window(QMainWindow):
         sidebar_layout.setSpacing(0)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         
-        data_class_mapping = {"CharacterName": CharacterName, "Class": Class, "Subject": Subject, "Department": Department, "Teacher": Teacher, "Prefect": Prefect, "AttendanceEntry": AttendanceEntry, "Time": Time}
+        data_class_mapping = {
+            "CharacterName": CharacterName,
+            "Class": Class,
+            "Subject": Subject,
+            "Department": Department,
+            "Teacher": Teacher,
+            "Prefect": Prefect,
+            "AttendanceEntry": AttendanceEntry,
+            "Period": Period,
+            "Time": Time
+        }
         
         with open("src/default-data/default-app-data.json") as file:
             app_data = process_from_data(json.load(file), data_class_mapping)
         with open("src/default-data/default-staff.json") as file:
             app_data.update(process_from_data(json.load(file), data_class_mapping))
-            app_data["attendance_data"] = []
         
         self.data = AppData(**app_data) if not self.file_path else self.file_manager.get_file_data()
         
@@ -44,33 +53,30 @@ class Window(QMainWindow):
         punctuality_graph_widget = PunctualityGraphWidget(self.data)
         
         # Create stacked widget for content
-        attendance_widget = TabViewWidget("vertical")
+        attendance_widget = TabViewWidget("horizontal")
         attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed), self.comm_send_screen_changed("state:1"))
-        attendance_widget.add("Teachers", TeacherStaffListWidget(attendance_widget, self.data, "Teachers", self.target_connector, 5, 6), self.comm_send_screen_changed("state:4"))
-        attendance_widget.add("Prefects", PrefectStaffListWidget(attendance_widget, self.data, "Prefects", self.target_connector, 5, 6), self.comm_send_screen_changed("state:5"))
+        attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, "Teachers", self.target_connector, 4, 5), self.comm_send_screen_changed("state:4"))
         attendance_widget.add("Attendance Chart", attendance_chart_widget, self.comm_send_screen_changed("state:2"))
         attendance_widget.add("Punctuality Graph", punctuality_graph_widget, self.comm_send_screen_changed("state:3"))
         attendance_widget.stack.addWidget(CardScanScreenWidget(self.target_connector, attendance_widget, self.saved_state_changed))
         attendance_widget.stack.addWidget(StaffDataWidget(self.data, attendance_widget))
         
-        sensors_widget = SensorsWidget(self.data, self.target_connector, self.saved_state_changed)
-        
-        main_screen_widget = TabViewWidget()
-        main_screen_widget.add("Staff", attendance_widget, self.comm_send_screen_changed("STAFF"))
-        main_screen_widget.add("Safety", sensors_widget, self.comm_send_screen_changed("SENSORS"))
+        # main_screen_widget = TabViewWidget()
+        # main_screen_widget.add("Staff", attendance_widget, self.comm_send_screen_changed("STAFF"))
         
         def conn_changed(connected):
             if not connected:
                 self.connection_set_up_screen.comm_disconnect()
-            else:
-                main_screen_widget.tab_src_changed_func_mapping.get(main_screen_widget.current_tab, lambda _: ())(list(main_screen_widget.tab_src_changed_func_mapping.keys()).index(main_screen_widget.current_tab))
+            # else:
+            #     main_screen_widget.tab_src_changed_func_mapping.get(main_screen_widget.current_tab, lambda _: ())(list(main_screen_widget.tab_src_changed_func_mapping.keys()).index(main_screen_widget.current_tab))
         
         self.connection_set_up_screen.disconnect_button.clicked.connect(self.disconnect_connection)
         self.target_connector.device.connection_changed.connect(conn_changed)
         self.saved_state_changed.connect(self.saved_state_changed_func)
         self.target_connector.device.connection_changed.emit(False)
         
-        main_layout.addWidget(main_screen_widget)
+        # main_layout.addWidget(main_screen_widget)
+        main_layout.addWidget(attendance_widget)
         
         self.setCentralWidget(container)
         
@@ -144,7 +150,7 @@ class Window(QMainWindow):
             self._windows = []
         self._windows.append(new_window)
     
-    def load_callback(self, file_path: str):
+    def load_callback(self):
         with open(self.file_path, "rb") as f:
             return pickle.load(f)
     
@@ -166,7 +172,7 @@ class Window(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    app.setWindowIcon(QIcon("src/icons-and-images/logo.png"))
+    # app.setWindowIcon(QIcon("src/icons-and-images/logo.png"))
     
     THEME_MANAGER.apply_theme(app)
     

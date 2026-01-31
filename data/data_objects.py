@@ -1,6 +1,7 @@
 
 from os import PathLike
-from models.data_models import *
+from data.metadata_objects import *
+from data.time_data_objects import Period
 from dataclasses import dataclass
 
 @dataclass
@@ -24,36 +25,25 @@ class Staff:
     
     name: CharacterName
     img_path: str | PathLike
+    
+    attendance: list["AttendanceEntry"]
 
 @dataclass
 class Teacher(Staff):
     department: Department
     subjects: list[Subject]
-    attendance: list["AttendanceEntry"]
 
 @dataclass
 class Prefect(Staff):
     post_name: str
     cls: Class
     duties: dict[str, list[str]]
-    attendance: list["AttendanceEntry"]
 
 
 @dataclass
 class AttendanceEntry:
-    time: Time
-    day: str
-    date: int
-    month: str
-    year: int
+    period: Period
+    
+    staff: Staff
     
     is_check_in: bool = True
-    
-    staff: Staff | None = None
-
-
-@dataclass
-class Sensor:
-    name: str
-    comm_system: ... # type:BaseCommSystem
-
