@@ -88,14 +88,15 @@ class StaffDataWidget(BaseExtraWidget):
         self.punctuality_widget = GraphWidget(graph_title, "Time", "Punctuality (Minutes)")
         
         color = list(get_named_colors_mapping().values())[staff_list.index(staff.id) % len(list(get_named_colors_mapping().values()))]
-            
+        
         labels_data = []
         weeks_data = []
         
         for index, attendance in enumerate(staff.attendance):
+            curr_index = DAYS_OF_THE_WEEK.index(attendance.period.day)
+            
             if index:
                 if attendance.is_check_in and attendance.period.day in self.staff_working_days[attendance.staff.id]:
-                    curr_index = DAYS_OF_THE_WEEK.index(attendance.period.day)
                     prev_index = DAYS_OF_THE_WEEK.index(staff.attendance[index - 1].period.day)
                     
                     if curr_index - prev_index == attendance.period.date - staff.attendance[index - 1].period.date:
@@ -110,17 +111,17 @@ class StaffDataWidget(BaseExtraWidget):
             
             # monthly_attendance_data[f"{attendance.month} {attendance.year}"] = monthly_attendance_data.get(f"{attendance.month} {attendance.year}", 0) + 1
         
-        weeks_data = [dt / self.staff_working_days[staff.id] * 100 for dt in weeks_data]
+        weeks_data = [dt / len(self.staff_working_days[staff.id]) * 100 for dt in weeks_data]
         self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, (labels_data, weeks_data))
         
-        y_plot_points = [index + (cit.in_minutes() - attendance.period.in_minutes()) for index, attendance in enumerate(staff.attendance) if attendance.is_check_in]
+        y_plot_points = [index + (cit.in_minutes() - attendance.period.time.in_minutes()) for index, attendance in enumerate(staff.attendance) if attendance.is_check_in and attendance.period.day in self.staff_working_days[staff.id]]
         
         self.punctuality_widget.plot(None, y_plot_points, marker='o', color=color)
         
         stats_widget, stats_layout = create_widget(None, QVBoxLayout)
         chart_widget, chart_layout = create_widget(None, QVBoxLayout)
         
-        stats_layout.addWidget(QLabel(f"<span style='font-weight: 500; color: #eeeeee;'>Attendance</span><b>:</b><span style='font-weight: 900; color: #ffffff;'> {str(int(sum(weeks_data) / (self.staff_working_days[staff.id] * len(weeks_data)) * 100)) + "%" if weeks_data else "No Data"}</span>"))
+        stats_layout.addWidget(QLabel(f"<span style='font-weight: 500; color: #eeeeee;'>Attendance</span><b>:</b><span style='font-weight: 900; color: #ffffff;'> {str(int(sum(weeks_data) / (len(self.staff_working_days[staff.id]) * len(weeks_data)) * 100)) + "%" if weeks_data else "No Data"}</span>"))
         
         chart_layout.addWidget(self.attendance_widget)
         chart_layout.addWidget(self.punctuality_widget)
@@ -187,7 +188,6 @@ class CardScanScreenWidget(BaseExtraWidget):
             self.iud_label.setText(self.staff.IUD)
             
             self.saved_state_changed.emit(False)
-            self.comm_system.send_message(f"setId:{self.staff.name.abrev},0,{time.ctime()}")
             
             self.iud_changed = True
             self.finished()
@@ -293,7 +293,7 @@ class SetupScreen(QDialog):
         bt_port_edit_layout.addWidget(QLabel("Port"))
         bt_port_edit_layout.addWidget(self.bt_port_edit)
         
-        bluetooth_layout.addWidget(LabeledField("Bluetooth Low Energy Devices", bluetooth_devices_widget, height_size_policy=QSizePolicy.Policy.Minimum))
+        bluetooth_layout.addWidget(LabeledField("Bluetooth Low Energy Devices", bluetooth_devices_widget, height_policy=QSizePolicy.Policy.Minimum))
         bluetooth_layout.addWidget(bt_port_edit_widget, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         
         self.main_layout.addWidget(self.main_widget)

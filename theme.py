@@ -268,18 +268,18 @@ stylesheet = '''
     font-size: 25px;
   }}
   
-  QWidget.AttendanceTeacherWidget *, QWidget.StaffListTeacherEntryWidget * {{
+  QWidget.AttendanceTeacherEntryWidget *, QWidget.StaffListTeacherEntryWidget * {{
       background-color: {teacher};
   }}
   
-  QWidget.AttendancePrefectWidget *, QWidget.StaffListPrefectEntryWidget * {{
+  QWidget.AttendancePrefectEntryWidget *, QWidget.StaffListPrefectEntryWidget * {{
     background-color: {prefect};
   }}
   
   QWidget.StaffListTeacherEntryWidget,
   QWidget.StaffListPrefectEntryWidget,
-  QWidget.AttendanceTeacherWidget,
-  QWidget.AttendancePrefectWidget
+  QWidget.AttendanceTeacherEntryWidget,
+  QWidget.AttendancePrefectEntryWidget
   {{
     border-radius: 25px;
     padding: 50px;
@@ -287,14 +287,14 @@ stylesheet = '''
   }}
   
   QWidget.StaffListTeacherEntryWidget * QLabel,
-	QWidget.AttendanceTeacherWidget * QLabel
+	QWidget.AttendanceTeacherEntryWidget * QLabel
   {{
 		color: {text_teacher};
     font-weight: bold;
 	}}
   
   QWidget.StaffListPrefectEntryWidget * QLabel,
-  QWidget.AttendancePrefectWidget * QLabel
+  QWidget.AttendancePrefectEntryWidget * QLabel
   {{
 		color: {text_prefect};
     font-weight: bold;
@@ -302,27 +302,27 @@ stylesheet = '''
  
   QWidget.StaffListTeacherEntryWidget * .labeled-title,
   QWidget.StaffListTeacherEntryWidget * .options-button,
-  QWidget.AttendanceTeacherWidget * .labeled-title,
-  QWidget.AttendanceTeacherWidget * .options-button
+  QWidget.AttendanceTeacherEntryWidget * .labeled-title,
+  QWidget.AttendanceTeacherEntryWidget * .options-button
   {{
 		color: {title_text_teacher};
 	}}
  
   QWidget.StaffListPrefectEntryWidget * .labeled-title,
   QWidget.StaffListPrefectEntryWidget * .options-button,
-  QWidget.AttendancePrefectWidget * .labeled-title,
-  QWidget.AttendancePrefectWidget * .options-button
+  QWidget.AttendancePrefectEntryWidget * .labeled-title,
+  QWidget.AttendancePrefectEntryWidget * .options-button
   {{
 		color: {title_text_prefect};
 	}}
   
-  QWidget.AttendanceTeacherWidget * .labeled-widget,
+  QWidget.AttendanceTeacherEntryWidget * .labeled-widget,
   QWidget.StaffListTeacherEntryWidget * .labeled-widget
   {{
     border: 1px solid {title_text_teacher};
   }}
   
-  QWidget.AttendancePrefectWidget * .labeled-widget,
+  QWidget.AttendancePrefectEntryWidget * .labeled-widget,
   QWidget.StaffListPrefectEntryWidget * .labeled-widget
   {{
     border: 1px solid {title_text_prefect};

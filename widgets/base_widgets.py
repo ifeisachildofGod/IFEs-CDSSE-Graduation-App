@@ -3,7 +3,9 @@ from others import *
 from imports import *
 from communication import *
 
-from theme import THEME_MANAGER
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QCursor
+
 
 class TabViewWidget(QWidget):
     def __init__(self, bar_orientation: Literal["vertical", "horizontal"] = "horizontal"):
@@ -143,45 +145,259 @@ class Image(QLabel):
         )
         self.setPixmap(scaled_pixmap)
 
+# class LabeledField(QWidget):
+#     def __init__(self, title: str, inner_widget: QWidget, width_policy: QSizePolicy.Policy | None = None, height_policy: QSizePolicy.Policy | None = None, parent=None):
+#         super().__init__(parent)
+        
+#         self.inner_widget = inner_widget
+        
+#         if (width_policy, height_policy).count(None) != 2 :
+#             self.setSizePolicy(width_policy if width_policy is not None else QSizePolicy.Policy.Preferred,
+#                                height_policy if height_policy is not None else QSizePolicy.Policy.Preferred)
+        
+#         # Title Label (floating effect)
+#         self.label = QLabel(title)
+#         self.label.setProperty("class", "labeled-title")
+        
+#         self.label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+#         # Frame to wrap the actual widget with border
+#         self.widget = QWidget()
+#         self.widget.setProperty("class", "labeled-widget")
+        
+#         widget_layout = QVBoxLayout(self.widget)
+#         # widget_layout.setContentsMargins(5, 0, 5, 5)  # leave space for label
+#         widget_layout.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignLeft)
+#         widget_layout.addWidget(self.inner_widget)
+        
+#         # Stack label over the widget
+#         main_layout = QVBoxLayout(self)
+#         # main_layout.setContentsMargins(4, 10, 4, 4)
+#         main_layout.setSpacing(0)
+#         # main_layout.addWidget(self.label)
+#         main_layout.addWidget(self.widget)
+        
+#         self.setLayout(main_layout)
+    
+#     def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
+#         if alignment is not None:
+#             self.inner_widget.layout().addWidget(widget, stretch, alignment)
+#         else:
+#             self.inner_widget.layout().addWidget(widget, stretch)
+
 class LabeledField(QWidget):
-    def __init__(self, title: str, inner_widget: QWidget, width_size_policy: QSizePolicy.Policy | None = None, height_size_policy: QSizePolicy.Policy | None = None, parent=None):
+    """
+    A container widget that displays a floating-style label
+    above an inner widget (e.g. QLineEdit, QComboBox, custom form widget).
+    """
+
+    def __init__(
+        self,
+        title: str,
+        inner_widget: QWidget,
+        width_policy: QSizePolicy.Policy | None = None,
+        height_policy: QSizePolicy.Policy | None = None,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
         
+        self.setStyleSheet(
+        """
+            /* Container */
+            QWidget.labeled-container {
+                border: 2px solid white;
+                border-radius: 8px;
+                /*background-color: #1e1e1e;*/
+            }
+
+            /* Floating title */
+            QLabel.labeled-title {
+                color: #9cdcfe;
+                font-size: 11px;
+                font-weight: 500;
+                padding: 0 4px;
+            }
+        """
+        )
+        
         self.inner_widget = inner_widget
-        
-        if (width_size_policy, height_size_policy).count(None) != 2 :
-            self.setSizePolicy(width_size_policy if width_size_policy is not None else QSizePolicy.Policy.Preferred,
-                               height_size_policy if height_size_policy is not None else QSizePolicy.Policy.Preferred)
-        
-        # Title Label (floating effect)
-        self.label = QLabel(title)
+
+        # -----------------------
+        # Size policy (optional)
+        # -----------------------
+        if width_policy or height_policy:
+            self.setSizePolicy(
+                width_policy or QSizePolicy.Policy.Preferred,
+                height_policy or QSizePolicy.Policy.Preferred,
+            )
+
+        # -----------------------
+        # Floating label
+        # -----------------------
+        self.label = QLabel(title, self)
         self.label.setProperty("class", "labeled-title")
-        
         self.label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # Frame to wrap the actual widget with border
-        self.widget = QWidget()
-        self.widget.setProperty("class", "labeled-widget")
-        
-        widget_layout = QVBoxLayout(self.widget)
-        # widget_layout.setContentsMargins(5, 0, 5, 5)  # leave space for label
-        widget_layout.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignLeft)
-        widget_layout.addWidget(self.inner_widget)
-        
-        # Stack label over the widget
-        main_layout = QVBoxLayout(self)
-        # main_layout.setContentsMargins(4, 10, 4, 4)
-        main_layout.setSpacing(0)
-        # main_layout.addWidget(self.label)
-        main_layout.addWidget(self.widget)
-        
-        self.setLayout(main_layout)
+        # -----------------------
+        # Frame container
+        # -----------------------
+        self.container = QWidget(self)
+        self.container.setProperty("class", "labeled-container")
 
-    def get_widget(self):
-        return self.widget.findChild(QWidget)
+        container_layout = QVBoxLayout(self.container)
+        container_layout.setContentsMargins(8, 10, 8, 8)
+        container_layout.setSpacing(6)
+        container_layout.addWidget(self.label)
+        container_layout.addWidget(self.inner_widget)
+
+        # -----------------------
+        # Main layout
+        # -----------------------
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self.container)
     
-    def addWidget(self, widget: QWidget, stretch: int = ..., alignment: Qt.AlignmentFlag = ...):
-        self.inner_widget.layout().addWidget(widget, stretch, alignment)
+    def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
+        if alignment is not None:
+            self.inner_widget.layout().addWidget(widget, stretch, alignment)
+        else:
+            self.inner_widget.layout().addWidget(widget, stretch)
+    
+    def setTitle(self, text: str):
+        self.label.setText(text)
+
+
+class DropdownLabeledField(QWidget):
+    def __init__(
+        self,
+        title: str,
+        content: QWidget,
+        expanded: bool = False,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        
+        self.setStyleSheet("""
+            /* Header */
+            QFrame.dropdown-header {
+                /*background-color: #252526;*/
+                border: 1px solid #3c3c3c;
+                border-radius: 8px;
+            }
+
+            QFrame.dropdown-header:hover {
+                /*background-color: #2a2d2e;*/
+            }
+
+            /* Title */
+            QLabel.dropdown-title {
+                color: #d4d4d4;
+                font-size: 13px;
+                font-weight: 500;
+            }
+
+            /* Arrow */
+            QLabel.dropdown-arrow {
+                color: #9cdcfe;
+                font-size: 12px;
+            }
+
+            /* Content */
+            QFrame.dropdown-container {
+                border: 1px solid white;
+                border-top: none;
+                border-radius: 0 0 8px 8px;
+                /*background-color: #1e1e1e;*/
+            }
+
+                           """)
+        
+        self._expanded = expanded
+        self.content = content
+
+        # -----------------------
+        # Header
+        # -----------------------
+        self.header = QFrame()
+        self.header.setProperty("class", "dropdown-header")
+        self.header.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.title_label = QLabel(title)
+        self.title_label.setProperty("class", "dropdown-title")
+
+        self.arrow = QLabel("▶")
+        self.arrow.setProperty("class", "dropdown-arrow")
+        self.arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        header_layout = QHBoxLayout(self.header)
+        header_layout.setContentsMargins(10, 8, 10, 8)
+        header_layout.addWidget(self.title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(self.arrow)
+
+        # -----------------------
+        # Content container
+        # -----------------------
+        self.container = QFrame()
+        self.container.setProperty("class", "dropdown-container")
+
+        container_layout = QVBoxLayout(self.container)
+        container_layout.setContentsMargins(10, 8, 10, 10)
+        container_layout.addWidget(self.content)
+
+        # Animation
+        self.anim = QPropertyAnimation(self.container, b"maximumHeight")
+        self.anim.setDuration(180)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        # -----------------------
+        # Main layout
+        # -----------------------
+        layout = QVBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.header)
+        layout.addWidget(self.container)
+
+        self.container.setMaximumHeight(0 if not expanded else 1_000_000)
+        self._update_arrow()
+
+        # Click handling
+        self.header.mousePressEvent = self._toggle  # type: ignore
+
+    def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
+        if alignment is not None:
+            self.content.layout().addWidget(widget, stretch, alignment)
+        else:
+            self.content.layout().addWidget(widget, stretch)
+    
+    # -----------------------
+    # Logic
+    # -----------------------
+    def _toggle(self, event):
+        self.setExpanded(not self._expanded)
+
+    def setExpanded(self, value: bool):
+        if self._expanded == value:
+            return
+
+        self._expanded = value
+        self._update_arrow()
+
+        start = self.container.maximumHeight()
+        end = self.container.sizeHint().height() if value else 0
+
+        self.anim.stop()
+        self.anim.setStartValue(start)
+        self.anim.setEndValue(end)
+        self.anim.start()
+
+    def _update_arrow(self):
+        self.arrow.setText("▼" if self._expanded else "▶")
+
+    def isExpanded(self) -> bool:
+        return self._expanded
+
 
 class CharacterNameWidget(QWidget):
     def __init__(self, name: CharacterName):
@@ -219,7 +435,7 @@ class CharacterNameWidget(QWidget):
         layout_2_1_2.addWidget(name_4)
         layout_2_1_2.addWidget(name_5, alignment=Qt.AlignmentFlag.AlignRight)
         
-        self.main_layout.addWidget(LabeledField("Names", widget_2_1, height_size_policy=QSizePolicy.Policy.Maximum))
+        self.main_layout.addWidget(LabeledField("Names", widget_2_1, height_policy=QSizePolicy.Policy.Maximum))
 
 
 

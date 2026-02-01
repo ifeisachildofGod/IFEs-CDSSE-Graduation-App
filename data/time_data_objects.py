@@ -47,11 +47,14 @@ class Time:
         return self.in_minutes() / 60
     
     @staticmethod
-    def ctime_to_time(ctime: str):
-        _, _, _, t, _ = ctime.split()
+    def str_to_time(str_time: str):
+        _, _, _, t, _ = str_time.split()
         hour, min, sec = t.split(":")
         
         return Time(int(hour), int(min), int(sec))
+    
+    def copy(self):
+        return Time(self.hour, self.min, self.sec)
 
 S_DAY = Time(24, 0, 0).in_seconds()
 S_WEEK = S_DAY * 7
@@ -87,14 +90,16 @@ class Period:
         return self.in_days() / 7
     
     @staticmethod
-    def ctime_to_period(ctime: str):
-        day, month, date, t, year = ctime.split()
+    def str_to_period(str_time: str):
+        day, month, date, _, year = str_time.split()
         
         day = next((dotw for dotw in DAYS_OF_THE_WEEK if day in dotw))
         month = next((moty for moty in MONTHS_OF_THE_YEAR if month in moty))
         date = int(date)
         year = int(year)
         
-        return Period(Time.ctime_to_time(ctime), day, date, month, year)
-
+        return Period(Time.str_to_time(str_time), day, date, month, year)
+    
+    def copy(self):
+        return Period(self.time.copy(), self.day, self.date, self.month, self.year)
 

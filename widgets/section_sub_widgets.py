@@ -80,7 +80,8 @@ class BaseStaffListWidget(QWidget):
             self.options_menu.move(button_pos)
             self.options_menu.show()
 
-class BaseAttendanceWidget(QWidget):
+
+class BaseAttendanceEntryWidget(QWidget):
     def __init__(self, name: str, data: AttendanceEntry, layout_type: type[QHBoxLayout] | type[QVBoxLayout] = QHBoxLayout):
         super().__init__()
         
@@ -94,15 +95,15 @@ class BaseAttendanceWidget(QWidget):
         self.main_layout = layout_type()
         self.container.setLayout(self.main_layout)
         
-        self.labeled_container = LabeledField(name, self.container, height_size_policy=QSizePolicy.Policy.Maximum, width_size_policy=QSizePolicy.Policy.Maximum)
+        self.labeled_container = LabeledField(name, self.container, height_policy=QSizePolicy.Policy.Maximum)
         
         layout.addWidget(self.labeled_container)
     
-class AttendanceTeacherWidget(BaseAttendanceWidget):
+class AttendanceTeacherEntryWidget(BaseAttendanceEntryWidget):
     def __init__(self, data: AttendanceEntry):
         super().__init__("Teacher", data)
         
-        self.labeled_container.setProperty("class", "AttendanceTeacherWidget")
+        self.labeled_container.setProperty("class", "AttendanceTeacherEntryWidget")
         
         self.teacher = self.data.staff
         
@@ -122,7 +123,7 @@ class AttendanceTeacherWidget(BaseAttendanceWidget):
         layout_1_2_1.addWidget(LabeledField("Day", QLabel(self.data.period.day)))
         layout_1_2_1.addWidget(LabeledField("Date", QLabel(f"{positionify(str(self.data.period.date))} of {self.data.period.month}, {self.data.period.year}")))
         
-        layout_1_2.addWidget(LabeledField("Date Info", widget_1_2_1, height_size_policy=QSizePolicy.Policy.Maximum))
+        layout_1_2.addWidget(LabeledField("Date Info", widget_1_2_1, height_policy=QSizePolicy.Policy.Maximum))
         
         widget_1_2_2, layout_1_2_2 = create_widget(None, QHBoxLayout)
         
@@ -130,7 +131,7 @@ class AttendanceTeacherWidget(BaseAttendanceWidget):
         layout_1_2_2.addWidget(LabeledField("Min", QLabel(("0" if self.data.period.time.min < 10 else "") + str(self.data.period.time.min))))
         layout_1_2_2.addWidget(LabeledField("Sec", QLabel(("0" if self.data.period.time.sec < 10 else "") + str(self.data.period.time.sec))))
         
-        layout_1_2.addWidget(LabeledField("Time", widget_1_2_2, height_size_policy=QSizePolicy.Policy.Maximum))
+        layout_1_2.addWidget(LabeledField("Time", widget_1_2_2, height_policy=QSizePolicy.Policy.Maximum))
         
         _, layout_2 = create_widget(self.main_layout, QVBoxLayout)
         
@@ -167,11 +168,11 @@ class AttendanceTeacherWidget(BaseAttendanceWidget):
                 layout_2_2_2_1.addWidget(LabeledField(cls_name, widget_2_2_2_1_1), int(index / 3), index % 3)
             layout_2_2_2.addWidget(LabeledField(subject_name, widget_2_2_2_1))
 
-class AttendancePrefectWidget(BaseAttendanceWidget):
+class AttendancePrefectEntryWidget(BaseAttendanceEntryWidget):
     def __init__(self, data: AttendanceEntry):
         super().__init__("Prefect", data)
         
-        self.labeled_container.setProperty("class", "AttendancePrefectWidget")
+        self.labeled_container.setProperty("class", "AttendancePrefectEntryWidget")
         
         self.prefect = self.data.staff
         
@@ -191,7 +192,7 @@ class AttendancePrefectWidget(BaseAttendanceWidget):
         layout_1_2_1.addWidget(LabeledField("Day", QLabel(self.data.period.day)))
         layout_1_2_1.addWidget(LabeledField("Date", QLabel(f"{positionify(str(self.data.period.date))} of {self.data.period.month}, {self.data.period.year}")))
         
-        layout_1_2.addWidget(LabeledField("Date Info", widget_1_2_1, height_size_policy=QSizePolicy.Policy.Maximum))
+        layout_1_2.addWidget(LabeledField("Date Info", widget_1_2_1, height_policy=QSizePolicy.Policy.Maximum))
         
         widget_1_2_2, layout_1_2_2 = create_widget(None, QHBoxLayout)
         
@@ -199,7 +200,7 @@ class AttendancePrefectWidget(BaseAttendanceWidget):
         layout_1_2_2.addWidget(LabeledField("Min", QLabel(("0" if self.data.period.time.min < 10 else "") + str(self.data.period.time.min))))
         layout_1_2_2.addWidget(LabeledField("Sec", QLabel(("0" if self.data.period.time.sec < 10 else "") + str(self.data.period.time.sec))))
         
-        layout_1_2.addWidget(LabeledField("Time", widget_1_2_2, height_size_policy=QSizePolicy.Policy.Maximum))
+        layout_1_2.addWidget(LabeledField("Time", widget_1_2_2, height_policy=QSizePolicy.Policy.Maximum))
         
         _, layout_2 = create_widget(self.main_layout, QVBoxLayout)
         
@@ -208,7 +209,7 @@ class AttendancePrefectWidget(BaseAttendanceWidget):
         
         widget_2_2, layout_2_2 = create_widget(None, QHBoxLayout)
         
-        layout_2_2.addWidget(LabeledField("Class", QLabel(self.prefect.cls.name), height_size_policy=QSizePolicy.Policy.Maximum))
+        layout_2_2.addWidget(LabeledField("Class", QLabel(self.prefect.cls.name), height_policy=QSizePolicy.Policy.Maximum))
         
         widget_1_3_1, layout_1_3_1 = create_scrollable_widget(None, QVBoxLayout)
         
@@ -218,6 +219,7 @@ class AttendancePrefectWidget(BaseAttendanceWidget):
         layout_2_2.addWidget(LabeledField("Duties", widget_1_3_1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
         
         layout_2.addWidget(widget_2_2)
+
 
 
 class StaffListPrefectEntryWidget(BaseStaffListWidget):

@@ -1,5 +1,6 @@
 
 from widgets.section_widgets import *
+from theme import THEME_MANAGER
 
 class Window(QMainWindow):
     comm_signal = pySignal(dict)
@@ -37,8 +38,8 @@ class Window(QMainWindow):
             "Department": Department,
             "Teacher": Teacher,
             "Prefect": Prefect,
-            "AttendanceEntry": AttendanceEntry,
             "Period": Period,
+            "AttendanceEntry": AttendanceEntry,
             "Time": Time
         }
         

@@ -39,7 +39,7 @@
             "post_name": "Ast. Games",
             "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
             "img_path": "src/profile-images/p_id1.png",
-            "duties": {"Friday": ["Afternoon", "Boys Footbal"]},
+            "duties": {"Monday": ["Afternoon", "Boys Footbal"], "Tuesday": ["Afternoon", "Boys Footbal"], "Wednesday": ["Afternoon", "Boys Footbal"], "Thursday": ["Afternoon", "Boys Footbal"], "Friday": ["Afternoon", "Boys Footbal"]},
             "attendance": []
         }],
         "p_id4": ["$$Prefect$$", {

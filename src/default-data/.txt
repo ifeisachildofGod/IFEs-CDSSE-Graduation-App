@@ -26,3 +26,4 @@ I am making something that uses data in this format
 "$$Value$$" defines a dataclass of name "Value". If a mapping or list ends in a comma, it means that the mapping or list is a collection of like objects.
 So far, do you understand what has been given.
 
+
