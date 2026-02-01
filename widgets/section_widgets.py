@@ -54,27 +54,51 @@ class BaseScrollListWidget(QWidget):
         else:
             self.main_layout.addWidget(widget, stretch)
 
-
 class _FilterCategoriesWidget(BaseListWidget):
     def __init__(self, scroll_area: QScrollArea):
         super().__init__(scroll_area)
         
         self.category_widgets = {}
     
-    def addWidget(self, widget: "AttendanceWidget", category_name: str, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
-        if category_name not in self.category_widgets:
-            cat_widg = QWidget()
-            cat_layout = QVBoxLayout()
-            cat_widg.setLayout(cat_layout)
+    def addWidget(self, widget: "AttendanceWidget", category_name: str | tuple[str, ...], stretch: int = 0, alignment: Qt.AlignmentFlag = None):
+        if isinstance(category_name, str):
+            if category_name not in self.category_widgets:
+                cat_widg = QWidget()
+                cat_layout = QVBoxLayout()
+                cat_widg.setLayout(cat_layout)
+                
+                self.category_widgets[category_name] = DropdownLabeledField(category_name, cat_widg, True)
+                
+                super().addWidget(self.category_widgets[category_name])
             
-            self.category_widgets[category_name] = DropdownLabeledField(category_name, cat_widg, True)
-            
-            super().addWidget(self.category_widgets[category_name])
-        
-        if alignment is not None:
-            self.category_widgets[category_name].addWidget(widget, stretch, alignment)
+            if alignment is not None:
+                self.category_widgets[category_name].addWidget(widget, stretch, alignment)
+            else:
+                self.category_widgets[category_name].addWidget(widget, stretch)
         else:
-            self.category_widgets[category_name].addWidget(widget, stretch)
+            parent = super()
+            widgs = self.category_widgets
+            
+            for i, name in enumerate(category_name):
+                if name not in widgs:
+                    cat_widg = QWidget()
+                    cat_layout = QVBoxLayout()
+                    cat_widg.setLayout(cat_layout)
+                    
+                    widgs[name] = [DropdownLabeledField(name, cat_widg, True), {}]
+                    
+                    parent.addWidget(widgs[name][0])
+                
+                if i != len(category_name) - 1:
+                    parent = widgs[name][0]
+                    widgs = widgs[name][1]
+                else:
+                    if alignment is not None:
+                        widgs[name][0].addWidget(widget, stretch, alignment)
+                    else:
+                        widgs[name][0].addWidget(widget, stretch)
+
+
 
 class AttendanceWidget(BaseScrollListWidget):
     comm_signal = pySignal(str)
@@ -148,24 +172,20 @@ class AttendanceWidget(BaseScrollListWidget):
                 months_list = list(MONTHS_OF_THE_YEAR)
                 
                 if entry.period.date - day_index < 1:
-                    start_month = months_list[months_list.index(entry.period.month) - 1]
-                    start_date = MONTHS_OF_THE_YEAR[start_month] + (entry.period.date - day_index)
+                    start_date = 1
                 else:
-                    start_month = entry.period.month
                     start_date = entry.period.date - day_index
                 
                 if entry.period.date + (6 - day_index) > MONTHS_OF_THE_YEAR[entry.period.month]:
                     if months_list.index(entry.period.month) + 1 < len(months_list):
-                        end_month = months_list[months_list.index(entry.period.month) + 1]
-                        end_date = (entry.period.date + (6 - day_index)) % MONTHS_OF_THE_YEAR[entry.period.month]
+                        end_date = MONTHS_OF_THE_YEAR[entry.period.month]
                     else:
-                        end_month = entry.period.month
                         end_date = MONTHS_OF_THE_YEAR[end_month]
                 else:
                     end_month = entry.period.month
                     end_date = entry.period.date + (6 - day_index)
                 
-                return f"{positionify(start_date)} {start_month} - {positionify(end_date)} {end_month}, {entry.period.year}"
+                return entry.period.month, f"{positionify(start_date)} - {positionify(end_date)}, {entry.period.year}"
         
         raise Exception()
     
@@ -181,7 +201,7 @@ class AttendanceWidget(BaseScrollListWidget):
     def _assess_filter(self, a_obj: BaseAttendanceEntryWidget, comb: tuple[int, ...]):
         i1, i2 = comb
         
-        curr_period = self.current_period()
+        curr_period = Period.str_to_period(time.ctime())
         
         a_types = [(AttendancePrefectEntryWidget, AttendanceTeacherEntryWidget), AttendancePrefectEntryWidget, AttendanceTeacherEntryWidget]
         
@@ -189,14 +209,14 @@ class AttendanceWidget(BaseScrollListWidget):
             if i2 == 0:
                 return True
             elif i2 == 1:
-                return a_obj.data.period.date == curr_period.date
+                return a_obj.data.period.date == curr_period.date and a_obj.data.period.month == curr_period.month and a_obj.data.period.year == curr_period.year
             elif i2 == 2:
                 obj_day_index = DAYS_OF_THE_WEEK.index(a_obj.data.period.day)
                 cur_day_index = DAYS_OF_THE_WEEK.index(curr_period.day)
                 
-                return cur_day_index - obj_day_index == curr_period.date - a_obj.data.period.date
+                return cur_day_index - obj_day_index == curr_period.date - a_obj.data.period.date and abs(a_obj.data.period.in_days() - curr_period.in_days()) < 7
             elif i2 == 3:
-                return curr_period.month == a_obj.data.period.month
+                return curr_period.month == a_obj.data.period.month and a_obj.data.period.year == curr_period.year
             elif i2 == 4:
                 return curr_period.year == a_obj.data.period.year
         
@@ -227,9 +247,9 @@ class AttendanceWidget(BaseScrollListWidget):
     def current_period(self):
         period = Period.str_to_period(time.ctime())
         
-        period.time.hour = random.randint(1, 24)
-        period.time.min = random.randint(1, 60)
-        period.time.sec = random.randint(1, 60)
+        period.time.hour = random.randint(0, 24)
+        period.time.min = random.randint(0, 60)
+        period.time.sec = random.randint(0, 60)
         
         period.month = random.choice(list(MONTHS_OF_THE_YEAR))
         
@@ -300,47 +320,50 @@ class AttendanceWidget(BaseScrollListWidget):
         
         if staff is None:
             staff = next((teacher for _, teacher in self.data.teachers.items() if teacher.IUD == IUD), None)
-        
-        if staff is not None:
-            period = self.current_period()
             
-            another_present = next((True for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), False)
-            ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
-            
-            is_ci = is_check_in(period.time, ct_data[0], ct_data[1])
-            
-            if another_present and is_ci:
+            if staff is None:
+                # self.comm_system.send_message("state:8")
+                QMessageBox.warning(self.parent_widget, "CardScannerError", f"No staff is linked to this card (IUD: {IUD})")
+                
                 return
-            
-            entry = AttendanceEntry(period, staff, is_ci)
-            
-            self.data.attendance_data.append(entry)
-            staff.attendance.append(entry)
-            
-            self._add_attendance_log(entry)
-        else:
-            self.comm_system.send_message("state:8")
-            QMessageBox.warning(self.parent_widget, "CardScannerError", f"No staff is linked to this card (IUD: {IUD})")
+        
+        period = self.current_period()
+        
+        another_present = next((True for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), False)
+        ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
+        
+        is_ci = is_check_in(period.time, ct_data[0], ct_data[1])
+        
+        if another_present and is_ci:
+            return
+        
+        entry = AttendanceEntry(period, staff, is_ci)
+        
+        self.data.attendance_data.append(entry)
+        staff.attendance.append(entry)
+        
+        self._add_attendance_log(entry)
     
     def keyPressEvent(self, a0):
-        if a0.text() == "6":
-            self.add_new_attendance_log("6999BDB2")
+        if a0.text() == "a":
+            self.add_new_attendance_log("51232123A")
         elif a0.text() == "b":
-            self.add_new_attendance_log("B3A6DE0C")
-        elif a0.text() == "8":
-            self.add_new_attendance_log("89A2A1B4")
-        elif a0.text() == "6":
+            self.add_new_attendance_log("6999BDB2")
+        elif a0.text() == "c":
             self.add_new_attendance_log("637B910C")
-        elif a0.text() == "a":
+        elif a0.text() == "d":
             self.add_new_attendance_log("A3DEB30C")
+        elif a0.text() == "e":
+            self.add_new_attendance_log("B3A6DE0C")
         elif a0.text() == "f":
-            self.add_new_attendance_log("F93E13B4")
+            self.add_new_attendance_log("89A2A1B4")
         
         return super().keyPressEvent(a0)
 
 
+
 class StaffListWidget(BaseScrollListWidget):
-    def __init__(self, parent_widget: TabViewWidget, data: AppData, tab_name: str, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
+    def __init__(self, parent_widget: TabViewWidget, data: AppData, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
         super().__init__()
         prefects = sorted([(k, v) for k, v in data.prefects.items()], key=lambda params: params[1].name.full_name())
         teachers = sorted([(k, v) for k, v in data.teachers.items()], key=lambda params: params[1].name.full_name())
@@ -390,19 +413,26 @@ class StaffListWidget(BaseScrollListWidget):
         for i, staff_widget in enumerate(self.widgets.values()):
             staff_widget.setVisible(index == i)
 
+
+
 class AttendanceBarWidget(BaseScrollListWidget):
     def __init__(self, data: AppData):
         super().__init__()
         
+        self.scroll_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
         self.data = data
         
         self.prefect_info_widget = BarWidget("Cummulative School Prefect Attendance", "School Prefects", "Yearly Attendance (%)")
+        self.prefect_info_widget.bar_canvas.axes.set_ylim(top=100)
+        
         dtd_widget, dtd_layout = create_widget(None, QVBoxLayout)
         self.teacher_dep_widgets = {}
         
         for teacher in self.data.teachers.values():
             if teacher.department.id not in self.teacher_dep_widgets:
                 self.teacher_dep_widgets[teacher.department.id] = BarWidget(f"Cummulative {teacher.department.name} Department Attendance", f"{teacher.department.name} Department Teachers", "Yearly Attendance (%)")
+                self.teacher_dep_widgets[teacher.department.id].bar_canvas.axes.set_ylim(top=100)
                 
                 dtd_layout.addWidget(self.teacher_dep_widgets[teacher.department.id])
         
@@ -430,7 +460,7 @@ class AttendanceBarWidget(BaseScrollListWidget):
     
     def filter(self, index: int):
         for i, staff_widget in enumerate(self.widgets.values()):
-            if isinstance(staff_widget, tuple):
+            if isinstance(staff_widget, tuple) and index == i:
                 for k in staff_widget:
                     self.widgets[k].setVisible(True)
             else:
@@ -439,39 +469,37 @@ class AttendanceBarWidget(BaseScrollListWidget):
     def prefect_data_changed(self):
         self.prefect_info_widget.clear()
         
-        prefect_names = []
-        prefects_attendance_data = []
+        prefect_data = {}
         
-        for staff_attendance_data in self.data.attendance_data:
-            if isinstance(staff_attendance_data.staff, Prefect):
-                valid_days = list(staff_attendance_data.staff.duties)
-                latest_attendance_period = next((p.period for p in reversed(staff_attendance_data.staff.attendance) if p.is_check_in), None)
+        for prefect in self.data.prefects.values():
+            valid_days = list(prefect.duties)
+            latest_attendance_period = next((p.period for p in reversed(prefect.attendance) if p.is_check_in), None)
+            
+            if latest_attendance_period:
+                percentage_attendance = self.get_percentage_attendance(prefect.attendance, valid_days, latest_attendance_period)
                 
-                if latest_attendance_period:
-                    percentage_attendance = self.get_percentage_attendance(staff_attendance_data.staff.attendance, valid_days, latest_attendance_period)
-                    
-                    prefect_names.append(staff_attendance_data.staff.name.abrev)
-                    prefects_attendance_data.append(percentage_attendance)
+                if percentage_attendance:
+                    prefect_data[prefect.id] = prefect.name.abrev, percentage_attendance
         
-        if prefects_attendance_data:
-            self.prefect_info_widget.add_data("Prefects", THEME_MANAGER.get_current_palette()["prefect"], (prefect_names, prefects_attendance_data))
+        for index, (name, data) in enumerate(prefect_data.values()):
+            self.prefect_info_widget.add_data(name, list(get_named_colors_mapping().values())[index], ([name], [data]))
     
     def teacher_data_changed(self):
         teacher_data: dict[str, tuple[str, tuple[list[str], list[int]]]] = {}
         
-        for staff_attendance_data in self.data.attendance_data:
-            if isinstance(staff_attendance_data.staff, Teacher):
-                valid_days = list(set(flatten([[day for day, _ in s.periods] for s in staff_attendance_data.staff.subjects])))
-                latest_attendance_period = next((t.period for t in reversed(staff_attendance_data.staff.attendance) if t.is_check_in), None)
+        for teacher in self.data.teachers.values():
+            valid_days = list(set(flatten([[day for day, _ in s.periods] for s in teacher.subjects])))
+            latest_attendance_period = next((t.period for t in reversed(teacher.attendance) if t.is_check_in), None)
+            
+            if latest_attendance_period:
+                percentage_attendance = self.get_percentage_attendance(teacher.attendance, valid_days, latest_attendance_period)
                 
-                if latest_attendance_period:
-                    percentage_attendance = self.get_percentage_attendance(staff_attendance_data.staff.attendance, valid_days, latest_attendance_period)
-                    
-                    if staff_attendance_data.staff.department.id in teacher_data:
-                        teacher_data[staff_attendance_data.staff.department.id][1][0].append(staff_attendance_data.staff.name)
-                        teacher_data[staff_attendance_data.staff.department.id][1][1].append(percentage_attendance)
+                if percentage_attendance:
+                    if teacher.department.id in teacher_data:
+                        teacher_data[teacher.department.id][1][0].append(teacher.name)
+                        teacher_data[teacher.department.id][1][1].append(percentage_attendance)
                     else:
-                        teacher_data[staff_attendance_data.staff.department.id] = (staff_attendance_data.staff.department.name, [(staff_attendance_data.staff.name), percentage_attendance])
+                        teacher_data[teacher.department.id] = (teacher.department.id, [teacher.name, percentage_attendance])
         
         if teacher_data:
             for index, (dep_id, (name, data)) in enumerate(teacher_data.items()):
@@ -480,11 +508,27 @@ class AttendanceBarWidget(BaseScrollListWidget):
                 widget.add_data(name, list(get_named_colors_mapping().values())[index], data)
     
     def get_percentage_attendance(self, attendance: list[AttendanceEntry], valid_attendance_days: list[str], latest_attendance_period: Period):
+        months = list(MONTHS_OF_THE_YEAR)
+        
         prefect_timeline_period_sp = self.data.prefect_timeline_dates[0].copy()
-        prefect_timeline_period_sp.time.hour += (7 - DAYS_OF_THE_WEEK.index(self.data.prefect_timeline_dates[0].day)) * 24
+        prefect_timeline_period_sp.date += 7 - DAYS_OF_THE_WEEK.index(self.data.prefect_timeline_dates[0].day)
+        if prefect_timeline_period_sp.date > MONTHS_OF_THE_YEAR[prefect_timeline_period_sp.month]:
+            new_month_index = months.index(prefect_timeline_period_sp.month) + 1
+            
+            prefect_timeline_period_sp.date = MONTHS_OF_THE_YEAR[prefect_timeline_period_sp.month] - prefect_timeline_period_sp.date
+            prefect_timeline_period_sp.month = months[new_month_index % len(months)]
+            
+            prefect_timeline_period_sp.year += new_month_index // len(months)
         
         latest_attendance_period_ep = latest_attendance_period.copy()
-        latest_attendance_period_ep.time.hour -= (DAYS_OF_THE_WEEK.index(self.data.prefect_timeline_dates[0].day) + 1) * 24
+        latest_attendance_period_ep.date -= DAYS_OF_THE_WEEK.index(self.data.prefect_timeline_dates[0].day) + 1
+        if latest_attendance_period_ep.date < 1:
+            new_month_index = months.index(latest_attendance_period_ep.month) - 1
+            
+            latest_attendance_period_ep.month = months[new_month_index % len(months)]
+            latest_attendance_period_ep.date += MONTHS_OF_THE_YEAR[latest_attendance_period_ep.month]
+            
+            latest_attendance_period_ep.year += new_month_index // len(months)
         
         interval = (
             len([day for day in valid_attendance_days if DAYS_OF_THE_WEEK.index(day) >= DAYS_OF_THE_WEEK.index(self.data.prefect_timeline_dates[0].day)]) +
@@ -494,12 +538,13 @@ class AttendanceBarWidget(BaseScrollListWidget):
         
         attendance_amt = len([a for a in attendance if a.period.day in valid_attendance_days and a.is_check_in])
         
-        return int(attendance_amt / interval * 100)
-
+        return int(100 * attendance_amt / interval) if interval else None
 
 class PunctualityGraphWidget(BaseScrollListWidget):
     def __init__(self, data: AppData):
         super().__init__()
+        
+        self.scroll_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
         self.data = data
         
@@ -539,7 +584,7 @@ class PunctualityGraphWidget(BaseScrollListWidget):
     
     def filter(self, index: int):
         for i, staff_widget in enumerate(self.widgets.values()):
-            if isinstance(staff_widget, tuple):
+            if isinstance(staff_widget, tuple) and index == i:
                 for k in staff_widget:
                     self.widgets[k].setVisible(True)
             else:

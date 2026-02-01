@@ -2,29 +2,11 @@ from imports import *
 from data.time_data_objects import *
 
 def is_check_in(t: Time, cin: Time, cout: Time):
-    cit_diff = math.fabs((cin.hour - t.hour) * 60 + (cin.min - t.min) + (cin.sec - t.sec) / 60)
-    cot_diff = math.fabs((cout.hour - t.hour) * 60 + (cout.min - t.min) + (cout.sec - t.sec) / 60)
+    cit_diff = t.in_seconds() - cin.in_seconds()
+    cot_diff = cout.in_seconds() - t.in_seconds()
     
-    return cit_diff < cot_diff
+    return cit_diff <= cot_diff
 
-def get_attendance_time_interval(min_timeline_dates: Period, max_timeline_dates: Period):
-    interval = None
-    start_days = None
-    end_days = None
-    for index, (month, _) in enumerate(MONTHS_OF_THE_YEAR.items()):
-        if min_timeline_dates.month == month:
-            start_days = sum(list(MONTHS_OF_THE_YEAR.values())[:index]) + min_timeline_dates.date
-        if max_timeline_dates.month == month:
-            year_addition = (max_timeline_dates.year - min_timeline_dates.year) * 360
-            end_days = sum(list(MONTHS_OF_THE_YEAR.values())[:index]) + max_timeline_dates.date + year_addition
-        
-        if start_days is not None and end_days is not None:
-            diff = end_days - start_days
-            week_amt = int(diff / 7)
-            interval = week_amt, (week_amt % 7)
-            break
-    
-    return interval
 
 def process_from_data(data, data_class_mapping: dict[str, type] | None = None, class_mapping: dict[str, type] | None = None):
     class_mapping = class_mapping if class_mapping is not None else {}

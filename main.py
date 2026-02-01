@@ -9,13 +9,13 @@ class Window(QMainWindow):
     
     def __init__(self, file_path: str | None = None) -> None:
         super().__init__()
-        self.title = "CDSSE School Manager"
+        self.title = "CDSSE Attendance Manager"
         
         self.file_path = file_path
         
         self.target_connector = BaseCommSystem(CommDevice(self.comm_signal, self.connection_changed, "", None, None), self.connection_error_func)
         self.connection_set_up_screen = SetupScreen(self, self.target_connector)
-        self.file_manager = FileManager(self, "CDSSE Management Files (*.cdmanage)")
+        self.file_manager = FileManager(self, "CDSSE Attendance Files (*.cdat)")
         self.file_manager.set_callbacks(self.save_callback, self.open_callback, self.load_callback)
         
         self.create_menu_bar()
@@ -56,7 +56,7 @@ class Window(QMainWindow):
         # Create stacked widget for content
         attendance_widget = TabViewWidget("horizontal")
         attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed), self.comm_send_screen_changed("state:1"))
-        attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, "Teachers", self.target_connector, 4, 5), self.comm_send_screen_changed("state:4"))
+        attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, self.target_connector, 4, 5), self.comm_send_screen_changed("state:4"))
         attendance_widget.add("Attendance Chart", attendance_chart_widget, self.comm_send_screen_changed("state:2"))
         attendance_widget.add("Punctuality Graph", punctuality_graph_widget, self.comm_send_screen_changed("state:3"))
         attendance_widget.stack.addWidget(CardScanScreenWidget(self.target_connector, attendance_widget, self.saved_state_changed))
@@ -96,7 +96,8 @@ class Window(QMainWindow):
     def comm_send_screen_changed(self, message: str):
         def scr_changed(_):
             if self.target_connector.connected:
-                self.target_connector.send_message(message)
+                pass
+                # self.target_connector.send_message(message)
         
         return scr_changed
     

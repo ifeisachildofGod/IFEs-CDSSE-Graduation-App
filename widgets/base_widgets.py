@@ -145,45 +145,6 @@ class Image(QLabel):
         )
         self.setPixmap(scaled_pixmap)
 
-# class LabeledField(QWidget):
-#     def __init__(self, title: str, inner_widget: QWidget, width_policy: QSizePolicy.Policy | None = None, height_policy: QSizePolicy.Policy | None = None, parent=None):
-#         super().__init__(parent)
-        
-#         self.inner_widget = inner_widget
-        
-#         if (width_policy, height_policy).count(None) != 2 :
-#             self.setSizePolicy(width_policy if width_policy is not None else QSizePolicy.Policy.Preferred,
-#                                height_policy if height_policy is not None else QSizePolicy.Policy.Preferred)
-        
-#         # Title Label (floating effect)
-#         self.label = QLabel(title)
-#         self.label.setProperty("class", "labeled-title")
-        
-#         self.label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-#         # Frame to wrap the actual widget with border
-#         self.widget = QWidget()
-#         self.widget.setProperty("class", "labeled-widget")
-        
-#         widget_layout = QVBoxLayout(self.widget)
-#         # widget_layout.setContentsMargins(5, 0, 5, 5)  # leave space for label
-#         widget_layout.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignLeft)
-#         widget_layout.addWidget(self.inner_widget)
-        
-#         # Stack label over the widget
-#         main_layout = QVBoxLayout(self)
-#         # main_layout.setContentsMargins(4, 10, 4, 4)
-#         main_layout.setSpacing(0)
-#         # main_layout.addWidget(self.label)
-#         main_layout.addWidget(self.widget)
-        
-#         self.setLayout(main_layout)
-    
-#     def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
-#         if alignment is not None:
-#             self.inner_widget.layout().addWidget(widget, stretch, alignment)
-#         else:
-#             self.inner_widget.layout().addWidget(widget, stretch)
 
 class LabeledField(QWidget):
     """
@@ -445,6 +406,11 @@ class BarChartCanvas(FigureCanvas):
         self.axes = fig.add_subplot(111)
         super().__init__(fig)
         
+        self.title, self.x_label, self.y_label = title, x_label, y_label
+        
+        self.set_vars(self.title, self.x_label, self.y_label)
+    
+    def set_vars(self, title: str, x_label: str, y_label: str):
         self.axes.set_title(title)
         self.axes.set_xlabel(x_label)
         self.axes.set_ylabel(y_label)
@@ -466,6 +432,12 @@ class GraphCanvas(FigureCanvas):
         fig = Figure(figsize=(5, 4), dpi=100)
         self.axes = fig.add_subplot(111)
         super().__init__(fig)
+        
+        self.title, self.x_label, self.y_label = title, x_label, y_label
+        
+        self.set_vars(self.title, self.x_label, self.y_label)
+    
+    def set_vars(self, title: str, x_label: str, y_label: str):
         self.axes.set_title(title)
         self.axes.set_xlabel(x_label)
         self.axes.set_ylabel(y_label)
@@ -482,6 +454,21 @@ class GraphCanvas(FigureCanvas):
 
 
 
+def clear_layout(layout: QLayout):
+    while layout.count():
+        item = layout.takeAt(0)
+
+        widget = item.widget()
+        layout_item = item.layout()
+
+        if widget is not None:
+            widget.setParent(None)
+            widget.deleteLater()
+
+        elif layout_item is not None:
+            clear_layout(layout_item)
+
+
 class BarWidget(QWidget):
     def __init__(self, title: str, x_label: str, y_label: str):
         super().__init__()
@@ -495,13 +482,13 @@ class BarWidget(QWidget):
         
         layout.addWidget(self.container)
         
-        main_keys_widget = QWidget()
+        self.main_keys_widget = QWidget()
         self.main_keys_layout = QHBoxLayout()
-        main_keys_widget.setLayout(self.main_keys_layout)
+        self.main_keys_widget.setLayout(self.main_keys_layout)
         
         self.bar_canvas = BarChartCanvas(title, x_label, y_label)
         
-        self.main_layout.addWidget(main_keys_widget)
+        self.main_layout.addWidget(self.main_keys_widget)
         self.main_layout.addWidget(self.bar_canvas)
     
     def add_data(self, name: str, color, data: tuple[list, list]):
@@ -527,7 +514,15 @@ class BarWidget(QWidget):
         self.main_keys_layout.addWidget(keys_widget, alignment=Qt.AlignmentFlag.AlignLeft)
     
     def clear(self):
+        y_lim = self.bar_canvas.axes.get_ylim()
+        
         self.bar_canvas.axes.clear()
+        
+        self.bar_canvas.axes.set_ylim(y_lim)
+        
+        clear_layout(self.main_keys_layout)
+        
+        self.bar_canvas.set_vars(self.bar_canvas.title, self.bar_canvas.x_label, self.bar_canvas.y_label)
 
 class GraphWidget(QWidget):
     def __init__(self, title: str, x_label: str, y_label: str):
@@ -550,4 +545,6 @@ class GraphWidget(QWidget):
     
     def clear(self):
         self.graph.axes.clear()
+        
+        self.graph.set_vars(self.graph.title, self.graph.x_label, self.graph.y_label)
 

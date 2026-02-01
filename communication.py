@@ -2,6 +2,8 @@
 from imports import *
 from others import Thread
 
+"Name:Variable-Type(Data)|...|..."
+
 @dataclass
 class CommDevice:
     data_signal: pyBoundSignal
@@ -111,7 +113,7 @@ class BaseCommSystem:
                 
                 if serial_target.in_waiting > 0:
                     bytetext = serial_target.readline()
-                    print("Data recv: ", bytetext.decode())
+                    print("Data recv:", bytetext.decode())
                     msg_recv = self._init_process_data(bytetext)
                     
                     if msg_recv:

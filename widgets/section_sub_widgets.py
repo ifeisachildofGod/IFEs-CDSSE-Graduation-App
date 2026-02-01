@@ -62,10 +62,10 @@ class BaseStaffListWidget(QWidget):
             card_scanner_widget.set_self(self.staff, self.iud_label)
             
             self.parent_widget.stack.setCurrentIndex(self.card_scanner_index)
-            self.comm_system.send_message("SCANNING")
+            # self.comm_system.send_message("SCANNING")
     
     def view_punctuality_data(self):
-        self.comm_system.send_message(f"staffPreformance:{self.staff.name.abrev}")
+        # self.comm_system.send_message(f"staffPreformance:{self.staff.name.abrev}")
         staff_data_widget: StaffDataWidget = self.parent_widget.stack.widget(self.staff_data_index)
         staff_data_widget.set_self(self.staff)
         

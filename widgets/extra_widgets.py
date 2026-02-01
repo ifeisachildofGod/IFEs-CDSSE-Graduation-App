@@ -65,22 +65,15 @@ class StaffDataWidget(BaseExtraWidget):
         if isinstance(staff, Teacher):
             bar_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Attendance Chart"
             graph_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Punctuality Graph"
-            # week_days = list(set(flatten([[day for day, _ in s.periods] for s in staff.subjects])))
-            # timeline_dates = self.data.teacher_timeline_dates
             staff_list = list(self.data.teachers)
             cit = self.data.teacher_cit
         elif isinstance(staff, Prefect):
             bar_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Cummulative Attendance Chart"
             graph_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Average Punctuality Graph"
-            # week_days = list(staff.duties.keys())
-            # timeline_dates = self.data.prefect_timeline_dates
             staff_list = list(self.data.prefects)
             cit = self.data.prefect_cit
         else:
             raise Exception()
-        
-        # months = []
-        # percentile_values = []
         
         self.attendance_widget = BarWidget(bar_title, "Time (Weeks)", "Attendance (%)")
         self.attendance_widget.bar_canvas.axes.set_ylim(0, 110)
@@ -108,8 +101,6 @@ class StaffDataWidget(BaseExtraWidget):
             else:
                 labels_data.append(f"{attendance.period.month} {attendance.period.year}\n{attendance.period.date - curr_index} to {attendance.period.date + (6 - curr_index)}")
                 weeks_data.append(1)
-            
-            # monthly_attendance_data[f"{attendance.month} {attendance.year}"] = monthly_attendance_data.get(f"{attendance.month} {attendance.year}", 0) + 1
         
         weeks_data = [dt / len(self.staff_working_days[staff.id]) * 100 for dt in weeks_data]
         self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, (labels_data, weeks_data))
@@ -121,7 +112,7 @@ class StaffDataWidget(BaseExtraWidget):
         stats_widget, stats_layout = create_widget(None, QVBoxLayout)
         chart_widget, chart_layout = create_widget(None, QVBoxLayout)
         
-        stats_layout.addWidget(QLabel(f"<span style='font-weight: 500; color: #eeeeee;'>Attendance</span><b>:</b><span style='font-weight: 900; color: #ffffff;'> {str(int(sum(weeks_data) / (len(self.staff_working_days[staff.id]) * len(weeks_data)) * 100)) + "%" if weeks_data else "No Data"}</span>"))
+        stats_layout.addWidget(QLabel(f"<span style='font-weight: 500; color: #eeeeee;'>Attendance</span><b>:</b><span style='font-weight: 900; color: #ffffff;'> {str(int(sum(weeks_data) / (len(self.staff_working_days[staff.id]) * len(weeks_data)) * 10)) + "%" if weeks_data else "No Data"}</span>"))
         
         chart_layout.addWidget(self.attendance_widget)
         chart_layout.addWidget(self.punctuality_widget)
@@ -175,7 +166,8 @@ class CardScanScreenWidget(BaseExtraWidget):
     def finished(self):
         self.iud_label = None
         if not self.iud_changed:
-            self.comm_system.send_message("NOT SCANNING")
+            pass
+            # self.comm_system.send_message("NOT SCANNING")
         return super().finished()
     
     def connection_changed(self, state: bool):
