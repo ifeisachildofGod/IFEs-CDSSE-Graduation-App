@@ -499,7 +499,7 @@ class AttendanceBarWidget(BaseScrollListWidget):
                         teacher_data[teacher.department.id][1][0].append(teacher.name)
                         teacher_data[teacher.department.id][1][1].append(percentage_attendance)
                     else:
-                        teacher_data[teacher.department.id] = (teacher.department.id, [teacher.name, percentage_attendance])
+                        teacher_data[teacher.department.id] = (teacher.department.id, [teacher.name, [percentage_attendance]])
         
         if teacher_data:
             for index, (dep_id, (name, data)) in enumerate(teacher_data.items()):
@@ -607,14 +607,14 @@ class PunctualityGraphWidget(BaseScrollListWidget):
         
         for staff_attendance_data in self.data.attendance_data:
             if isinstance(staff_attendance_data.staff, Teacher):
-                teacher_data[staff_attendance_data.staff.department.id] = self.get_punctuality_data(staff_attendance_data.staff)
+                s_id = staff_attendance_data.staff.department.id
+                
+                teacher_data[s_id] = self.get_punctuality_data(staff_attendance_data.staff)
+                self.teacher_info_widgets[s_id].clear()
         
         if teacher_data:
-            for dep_id, dep_data in teacher_data.items():
-                self.teacher_info_widgets[dep_id].clear()
-                
-                for index, (name, info) in enumerate(dep_data.items()):
-                    self.teacher_info_widgets[dep_id].plot(None, info, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
+            for index, (dep_id, (name, info)) in enumerate(teacher_data.items()):
+                self.teacher_info_widgets[dep_id].plot(None, info, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
     
     def get_punctuality_data(self, staff: Staff):
         prefects_plot_data: list[float] = []
