@@ -132,7 +132,7 @@ class AttendanceWidget(BaseScrollListWidget):
         self.filter_data = [
             [["All (Staff)", "Prefects", "Teachers"], 0],
             [["All (Timelines)", "Today", "This week", "This month", "This year", "Last year", "Last 5 years", "Last decade"] + self.other_years, 0],
-            [["Default", "Daily", "Weekly", "Monthly", "Yearly", "Dates (Categorised)", "Daily (Categorised)", "Monthly (Categorised)", "Yearly (Categorised)"], 0]
+            [["Default (Display Format)", "Daily", "Weekly", "Monthly", "Yearly", "Dates (Categorised)", "Daily (Categorised)", "Monthly (Categorised)", "Yearly (Categorised)"], 0]
         ]
         self.comb_index_mapping = {}
         filter_combinations = [tuple(reversed(p)) for p in product(*reversed([range(len(l)) for l, _ in self.filter_data]))]
