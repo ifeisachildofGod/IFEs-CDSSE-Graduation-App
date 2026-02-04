@@ -66,15 +66,15 @@ class Thread(QThread):
 
 
 class FileManager:
-    def __init__(self, parent: QWidget, file_filter="Text Files (*.txt);;All Files (*)"):
+    def __init__(self, parent: QWidget, current_path: Optional[str] = None, file_filter="Text Files (*.txt);;All Files (*)"):
         self.parent = parent
         self.file_filter = file_filter
-        self.current_path: Optional[str] = None
+        self.current_path = current_path
 
         # Hooks: user-defined callbacks for file read/write
         self.save_callback: Optional[Callable[[str | None], str]] = None
         self.open_callback: Optional[Callable[[], None] | Callable[[str, Any], None]] = None
-        self.load_callback: Optional[Callable[[], Any]] = None
+        self.load_callback: Optional[Callable[[str], Any]] = None
 
     def set_callbacks(self, save: Callable[[str | None], None], open_: Callable[[], None] | Callable[[str, Any], None], load: Callable[[], Any]):
         self.save_callback = save
@@ -82,11 +82,13 @@ class FileManager:
         self.load_callback = load
     
     def get_file_data(self):
-        if self.current_path:
-            return self.load_callback()
+        assert self.current_path
+        
+        return self.load_callback(self.current_path)
     
     def new(self):
         self.current_path = None
+        
         if self.open_callback:
             self.open_callback()
     

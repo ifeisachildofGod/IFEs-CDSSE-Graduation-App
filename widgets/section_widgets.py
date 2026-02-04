@@ -60,8 +60,10 @@ class _FilterCategoriesWidget(BaseListWidget):
         
         self.category_widgets = {}
     
-    def addWidget(self, widget: "AttendanceWidget", category_name: str | tuple[str, ...], stretch: int = 0, alignment: Qt.AlignmentFlag = None):
-        if isinstance(category_name, str):
+    def addWidget(self, widget: "AttendanceWidget", category_name: str | tuple[str, ...] | int, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
+        if isinstance(category_name, (str, int)):
+            category_name = str(category_name)
+            
             if category_name not in self.category_widgets:
                 cat_widg = QWidget()
                 cat_layout = QVBoxLayout()
@@ -80,6 +82,8 @@ class _FilterCategoriesWidget(BaseListWidget):
             widgs = self.category_widgets
             
             for i, name in enumerate(category_name):
+                name = str(name)
+                
                 if name not in widgs:
                     cat_widg = QWidget()
                     cat_layout = QVBoxLayout()
@@ -118,31 +122,38 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.create_time_labels()
         
+        self.stack = QStackedWidget()
+        
+        cperiod = Period.str_to_period(time.ctime())
+        self.other_years = sorted(set([str(att.period.year) for att in self.data.attendance_data if att.period.year not in (cperiod.year, cperiod.year - 1)]))
+        
         self.filter_views = {}
         
-        self.filter_data = [[["All", "Prefects", "Teachers"], 0], [["All", "Today", "This week", "This month", "This year"], 0]]
-        
+        self.filter_data = [
+            [["All (Staff)", "Prefects", "Teachers"], 0],
+            [["All (Timelines)", "Today", "This week", "This month", "This year", "Last year", "Last 5 years", "Last decade"] + self.other_years, 0],
+            [["Default", "Daily", "Weekly", "Monthly", "Yearly", "Dates (Categorised)", "Daily (Categorised)", "Monthly (Categorised)", "Yearly (Categorised)"], 0]
+        ]
+        self.comb_index_mapping = {}
         filter_combinations = [tuple(reversed(p)) for p in product(*reversed([range(len(l)) for l, _ in self.filter_data]))]
         
-        for comb in filter_combinations:
+        for index, comb in enumerate(filter_combinations):
             widget = self._determine_filter_widget_type(comb)
             
-            self.main_layout.addWidget(widget)
+            self.stack.addWidget(widget)
             
-            self.filter_views[comb] = widget
+            self.filter_views[comb] = [widget, len(self.data.attendance_data)]
         
-        for attendance in self.data.attendance_data:
-            self._add_attendance_log(attendance)
+        self.main_layout.addWidget(self.stack)
         
         self.main_layout.addStretch()
         
         self.comm_signal.connect(self.add_new_attendance_log)
         self.comm_system.set_data_point("IUD", self.comm_signal)
         
-        for i, widget in enumerate(self.filter_views.values()):
-            widget.setVisible(i == 0)
-        
         filter_widget, filter_layout = create_widget(None, QHBoxLayout)
+        
+        self.filter_comboboxes = []
         
         for index, (f_data, _) in enumerate(self.filter_data):
             filter = QComboBox()
@@ -150,87 +161,105 @@ class AttendanceWidget(BaseScrollListWidget):
             filter.addItems(f_data)
             filter.currentIndexChanged.connect(self._make_c_change_func(index))
             
-            filter.setCurrentIndex(0)
-            
             filter_layout.addWidget(filter, alignment=Qt.AlignmentFlag.AlignRight)
+            
+            self.filter_comboboxes.append(filter)
+        
+        self.filter_comboboxes[0].setCurrentIndex(0)
         
         self._layout.insertWidget(0, filter_widget, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        for attendance in self.data.attendance_data:
+            self._add_attendance_log(attendance)
     
-    def _determine_category_name(self, comb: tuple[int, ...], entry: AttendanceEntry):
-        match comb[1]:
+    def _determine_filter_widget_type(self, comb: tuple[int, ...]):
+        return BaseListWidget(self.scroll_widget) if comb[1] in (0, 1) and comb[2] in (0, ) else _FilterCategoriesWidget(self.scroll_widget)
+    
+    def _add_attendance_entry(self, comb: tuple[int, ...], t_widget_entry: AttendanceEntry):
+        if isinstance(t_widget_entry.staff, Teacher):
+            t_widget = AttendanceTeacherEntryWidget(t_widget_entry)
+        elif isinstance(t_widget_entry.staff, Prefect):
+            t_widget = AttendancePrefectEntryWidget(t_widget_entry)
+        else:
+            raise TypeError(f"Type: {type(t_widget_entry.staff)} is not supported")
+        
+        parent_widg, _ = self.filter_views[comb]
+        
+        accepted, cls = self.filter(t_widget, comb)
+        
+        if accepted:
+            parent_widg.addWidget(t_widget, cls)
+    
+    def _make_c_change_func(self, index: int):
+        def func(i):
+            comb = tuple((c.currentIndex() if c_i != index else i) for c_i, c in enumerate(self.filter_comboboxes))
+            widg, att_i = self.filter_views[comb]
+            
+            for att_entry in self.data.attendance_data[att_i:]:
+                self._add_attendance_entry(comb, att_entry)
+            
+            self.filter_views[comb][1] = len(self.data.attendance_data)
+
+            self.stack.setCurrentWidget(widg)
+        
+        return func
+    
+    def _filter_category_fmt(self, entry_obj: BaseAttendanceEntryWidget, index: int, default: str | tuple[str, ...] | None):
+        entry = entry_obj.data
+        
+        match index:
             case 0:
-                return
+                return default
             case 1:
-                return
-            case 2:
                 return entry.period.day
-            case 3:
-                return f"{entry.period.day}, {positionify(entry.period.date)} {entry.period.month}"
-            case 4:
+            case 2:
                 day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                month_index = list(MONTHS_OF_THE_YEAR).index(entry.period.month)
                 
-                months_list = list(MONTHS_OF_THE_YEAR)
+                start_date = entry.period.date - day_index
+                end_date = start_date + 6
                 
-                if entry.period.date - day_index < 1:
-                    start_date = 1
-                else:
-                    start_date = entry.period.date - day_index
+                start_month = entry.period.month
+                end_month = entry.period.month
                 
-                if entry.period.date + (6 - day_index) > MONTHS_OF_THE_YEAR[entry.period.month]:
-                    if months_list.index(entry.period.month) + 1 < len(months_list):
-                        end_date = MONTHS_OF_THE_YEAR[entry.period.month]
-                    else:
-                        end_date = MONTHS_OF_THE_YEAR[end_month]
-                else:
-                    end_month = entry.period.month
-                    end_date = entry.period.date + (6 - day_index)
+                start_year = entry.period.year
+                end_year = entry.period.year
                 
-                return entry.period.month, f"{positionify(start_date)} - {positionify(end_date)}, {entry.period.year}"
+                if start_date < 1:
+                    if not month_index:
+                        start_year -= 1
+                    
+                    start_month = list(MONTHS_OF_THE_YEAR)[month_index - 1]
+                    start_date += MONTHS_OF_THE_YEAR[start_month]
+                
+                if end_date > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    if month_index == len(MONTHS_OF_THE_YEAR) - 1:
+                        end_year += 1
+                    
+                    end_date = end_date % MONTHS_OF_THE_YEAR[entry.period.month]
+                    end_month = list(MONTHS_OF_THE_YEAR)[(month_index + 1) % len(MONTHS_OF_THE_YEAR)]
+                
+                return f"{positionify(start_date)} {start_month} {start_year} - {positionify(end_date)} {end_month} {end_year}"
+            case 3:
+                return entry.period.month
+            case 4:
+                return entry.period.year
+            case 5:
+                return positionify(entry.period.date), entry.period.year, entry.period.month, entry.period.day
+            case 6:
+                return entry.period.day, entry.period.year, entry.period.month, positionify(entry.period.date)
+            case 7:
+                return entry.period.month, entry.period.year, entry.period.day, positionify(entry.period.date)
+            case 8:
+                return entry.period.year, entry.period.month, entry.period.day, positionify(entry.period.date)
         
         raise Exception()
     
-    def _determine_filter_widget_type(self, comb: tuple[int, ...]):
-        return BaseListWidget(self.scroll_widget) if comb[1] in (0, 1) else _FilterCategoriesWidget(self.scroll_widget)
-    
-    def _make_c_change_func(self, index: int):
-        def c_change(i):
-            self.filter(*tuple((i if index == s_i else None) for s_i in range(len(self.filter_data))))
-        
-        return c_change
-    
-    def _assess_filter(self, a_obj: BaseAttendanceEntryWidget, comb: tuple[int, ...]):
-        i1, i2 = comb
-        
-        curr_period = Period.str_to_period(time.ctime())
-        
-        a_types = [(AttendancePrefectEntryWidget, AttendanceTeacherEntryWidget), AttendancePrefectEntryWidget, AttendanceTeacherEntryWidget]
-        
-        if isinstance(a_obj, a_types[i1]):
-            if i2 == 0:
-                return True
-            elif i2 == 1:
-                return a_obj.data.period.date == curr_period.date and a_obj.data.period.month == curr_period.month and a_obj.data.period.year == curr_period.year
-            elif i2 == 2:
-                obj_day_index = DAYS_OF_THE_WEEK.index(a_obj.data.period.day)
-                cur_day_index = DAYS_OF_THE_WEEK.index(curr_period.day)
-                
-                return cur_day_index - obj_day_index == curr_period.date - a_obj.data.period.date and abs(a_obj.data.period.in_days() - curr_period.in_days()) < 7
-            elif i2 == 3:
-                return curr_period.month == a_obj.data.period.month and a_obj.data.period.year == curr_period.year
-            elif i2 == 4:
-                return curr_period.year == a_obj.data.period.year
-        
-        return False
-    
-    def _add_attendance_log(self, attendance_entry: AttendanceEntry):
+    def _add_attendance_log(self, attendance_entry: AttendanceEntry, index=None):
         if isinstance(attendance_entry.staff, Teacher):
-            widget_class = AttendanceTeacherEntryWidget
-            
             self.attendance_chart_widget.teacher_data_changed()
             self.punctuality_graph_widget.teacher_data_changed()
         elif isinstance(attendance_entry.staff, Prefect):
-            widget_class = AttendancePrefectEntryWidget
-            
             self.attendance_chart_widget.prefect_data_changed()
             self.punctuality_graph_widget.prefect_data_changed()
         else:
@@ -238,11 +267,179 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.saved_state_changed.emit(False)
         
-        for comb, m_widget in self.filter_views.items():
-            widget = widget_class(attendance_entry)
+        curr_widget = self.stack.currentWidget()
+        
+        if index is not None:
+            widg_comb = None
             
-            if self._assess_filter(widget, comb):
-                m_widget.addWidget(widget, self._determine_category_name(comb, widget.data))
+            for comb, (widget, _) in self.filter_views.items():
+                if widget == curr_widget:
+                    widg_comb = comb
+                elif index < self.filter_views[comb][1]:
+                    self.filter_views[comb][1] = index
+            
+            assert widg_comb
+            
+            self._add_attendance_entry(widg_comb, attendance_entry)
+        else:
+            for comb, (widget, _) in self.filter_views.items():
+                self._add_attendance_entry(comb, attendance_entry)
+    
+    def filter(self, entry_obj: BaseAttendanceEntryWidget, comb: tuple[int, ...]):
+        i1, i2, i3 = comb
+        
+        curr_period = Period.str_to_period(time.ctime())
+        
+        a_types = [(AttendancePrefectEntryWidget, AttendanceTeacherEntryWidget), AttendancePrefectEntryWidget, AttendanceTeacherEntryWidget]
+        
+        if isinstance(entry_obj, a_types[i1]):
+            entry = entry_obj.data
+            
+            if i2 == 0:
+                return True, self._filter_category_fmt(entry_obj, i3, None)
+            elif i2 == 1:
+                return (
+                    entry_obj.data.period.date == curr_period.date and entry_obj.data.period.month == curr_period.month and entry_obj.data.period.year == curr_period.year,
+                    self._filter_category_fmt(entry_obj, i3, None)
+                )
+            elif i2 == 2:
+                obj_day_index = DAYS_OF_THE_WEEK.index(entry_obj.data.period.day)
+                cur_day_index = DAYS_OF_THE_WEEK.index(curr_period.day)
+                
+                return (
+                    cur_day_index - obj_day_index == curr_period.date - entry_obj.data.period.date and abs(entry_obj.data.period.in_days() - curr_period.in_days()) < 7,
+                    self._filter_category_fmt(entry_obj, i3, entry.period.day)
+                )
+            elif i2 == 3:
+                return (
+                    curr_period.month == entry_obj.data.period.month and entry_obj.data.period.year == curr_period.year,
+                    self._filter_category_fmt(entry_obj, i3, f"{entry.period.day}, {positionify(entry.period.date)} {entry.period.month}")
+                )
+            elif i2 == 4:
+                day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                
+                if entry.period.date - day_index < 1:
+                    start_date = 1
+                else:
+                    start_date = entry.period.date - day_index
+                
+                if entry.period.date - day_index + 6 > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    end_date = MONTHS_OF_THE_YEAR[entry.period.month]
+                else:
+                    end_date = entry.period.date - day_index + 6
+                
+                return (
+                    curr_period.year == entry_obj.data.period.year,
+                    self._filter_category_fmt(
+                        entry_obj,
+                        i3,
+                        (
+                            entry.period.month,
+                            f"{positionify(start_date)} - {positionify(end_date)}" if start_date != end_date else positionify(start_date)
+                        )
+                    )
+                )
+            elif i2 == 5:
+                day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                
+                if entry.period.date - day_index < 1:
+                    start_date = 1
+                else:
+                    start_date = entry.period.date - day_index
+                
+                if entry.period.date - day_index + 6 > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    end_date = MONTHS_OF_THE_YEAR[entry.period.month]
+                else:
+                    end_date = entry.period.date - day_index + 6
+                
+                return (
+                    curr_period.year - 1 == entry_obj.data.period.year,
+                    self._filter_category_fmt(
+                        entry_obj,
+                        i3,
+                        (
+                            entry.period.month,
+                            f"{positionify(start_date)} - {positionify(end_date)}" if start_date != end_date else positionify(start_date)
+                        )
+                    )
+                )
+            elif i2 == 6:
+                day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                
+                if entry.period.date - day_index < 1:
+                    start_date = 1
+                else:
+                    start_date = entry.period.date - day_index
+                
+                if entry.period.date - day_index + 6 > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    end_date = MONTHS_OF_THE_YEAR[entry.period.month]
+                else:
+                    end_date = entry.period.date - day_index + 6
+                
+                return (
+                    curr_period.year - 5 <= entry_obj.data.period.year <= curr_period.year,
+                    self._filter_category_fmt(
+                        entry_obj,
+                        i3,
+                        (
+                            curr_period.year,
+                            entry.period.month,
+                            f"{positionify(start_date)} - {positionify(end_date)}" if start_date != end_date else positionify(start_date)
+                        )
+                    )
+                )
+            elif i2 == 7:
+                day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                
+                if entry.period.date - day_index < 1:
+                    start_date = 1
+                else:
+                    start_date = entry.period.date - day_index
+                
+                if entry.period.date - day_index + 6 > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    end_date = MONTHS_OF_THE_YEAR[entry.period.month]
+                else:
+                    end_date = entry.period.date - day_index + 6
+                
+                return (
+                    curr_period.year - 10 <= entry_obj.data.period.year <= curr_period.year,
+                    self._filter_category_fmt(
+                        entry_obj,
+                        i3,
+                        (
+                            curr_period.year,
+                            entry.period.month,
+                            f"{positionify(start_date)} - {positionify(end_date)}" if start_date != end_date else positionify(start_date)
+                        )
+                    )
+                )
+            
+            if 8 <= i2 <= 8 + len(self.other_years):
+                day_index = DAYS_OF_THE_WEEK.index(entry.period.day)
+                
+                if entry.period.date - day_index < 1:
+                    start_date = 1
+                else:
+                    start_date = entry.period.date - day_index
+                
+                if entry.period.date - day_index + 6 > MONTHS_OF_THE_YEAR[entry.period.month]:
+                    end_date = MONTHS_OF_THE_YEAR[entry.period.month]
+                else:
+                    end_date = entry.period.date - day_index + 6
+                
+                return (
+                    int(self.other_years[i2 - 8]) == entry_obj.data.period.year,
+                    self._filter_category_fmt(
+                        entry_obj,
+                        i3,
+                        (
+                            entry.period.month,
+                            f"{positionify(start_date)} - {positionify(end_date)}" if start_date != end_date else positionify(start_date)
+                        )
+                    )
+                )
+        
+        return False, None
     
     def current_period(self):
         period = Period.str_to_period(time.ctime())
@@ -258,14 +455,6 @@ class AttendanceWidget(BaseScrollListWidget):
         period.day = DAYS_OF_THE_WEEK[(DAYS_OF_THE_WEEK.index(period.day) + period.date - prev_date) % 7]
         
         return period
-    
-    def filter(self, *args):
-        for i, index in enumerate(args):
-            if index is not None:
-                self.filter_data[i][1] = index
-        
-        for key, widget in self.filter_views.items():
-            widget.setVisible(key == tuple(i for _, i in self.filter_data))
     
     def create_time_labels(self):
         _, time_layout = create_widget(self.main_layout, QHBoxLayout)
@@ -342,7 +531,7 @@ class AttendanceWidget(BaseScrollListWidget):
         self.data.attendance_data.append(entry)
         staff.attendance.append(entry)
         
-        self._add_attendance_log(entry)
+        self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
     
     def keyPressEvent(self, a0):
         if a0.text() == "a":
@@ -485,27 +674,34 @@ class AttendanceBarWidget(BaseScrollListWidget):
             self.prefect_info_widget.add_data(name, list(get_named_colors_mapping().values())[index], ([name], [data]))
     
     def teacher_data_changed(self):
-        teacher_data: dict[str, tuple[str, tuple[list[str], list[int]]]] = {}
+        teacher_data: dict[tuple[str, str], list[tuple[list[str], list[int]]]] = {}
         
         for teacher in self.data.teachers.values():
             valid_days = list(set(flatten([[day for day, _ in s.periods] for s in teacher.subjects])))
-            latest_attendance_period = next((t.period for t in reversed(teacher.attendance) if t.is_check_in), None)
+            latest_attendance_period = next((t.period for t in reversed(teacher.attendance) if t.is_check_in and t.period.day in valid_days), None)
             
             if latest_attendance_period:
                 percentage_attendance = self.get_percentage_attendance(teacher.attendance, valid_days, latest_attendance_period)
                 
                 if percentage_attendance:
-                    if teacher.department.id in teacher_data:
-                        teacher_data[teacher.department.id][1][0].append(teacher.name)
-                        teacher_data[teacher.department.id][1][1].append(percentage_attendance)
-                    else:
-                        teacher_data[teacher.department.id] = (teacher.department.id, [teacher.name, [percentage_attendance]])
+                    key = teacher.department.id, teacher.department.name
+                    t_data = [teacher.name.full_name()], [percentage_attendance]
+                    
+                    if teacher.department.id not in teacher_data:
+                        teacher_data[key] = [t_data]
+                    
+                    teacher_data[key].append(t_data)
         
         if teacher_data:
-            for index, (dep_id, (name, data)) in enumerate(teacher_data.items()):
+            index = 0
+            
+            for (dep_id, dep_name), total_teacher_data in teacher_data.items():
                 widget = self.teacher_dep_widgets[dep_id]
                 widget.clear()
-                widget.add_data(name, list(get_named_colors_mapping().values())[index], data)
+                
+                for t_data in total_teacher_data:
+                    index += 1
+                    widget.add_data(dep_name, list(get_named_colors_mapping().values())[index], t_data)
     
     def get_percentage_attendance(self, attendance: list[AttendanceEntry], valid_attendance_days: list[str], latest_attendance_period: Period):
         months = list(MONTHS_OF_THE_YEAR)
@@ -530,7 +726,7 @@ class AttendanceBarWidget(BaseScrollListWidget):
             
             latest_attendance_period_ep.year += new_month_index // len(months)
         
-        interval = (
+        interval = abs(
             len([day for day in valid_attendance_days if DAYS_OF_THE_WEEK.index(day) >= DAYS_OF_THE_WEEK.index(self.data.prefect_timeline_dates[0].day)]) +
             len(valid_attendance_days) * int(latest_attendance_period_ep.in_weeks() - prefect_timeline_period_sp.in_weeks()) +
             len([day for day in valid_attendance_days if DAYS_OF_THE_WEEK.index(day) <= DAYS_OF_THE_WEEK.index(latest_attendance_period.day)])
@@ -591,26 +787,24 @@ class PunctualityGraphWidget(BaseScrollListWidget):
                 staff_widget.setVisible(index == i)
     
     def prefect_data_changed(self):
-        prefects_data = {}
+        prefects_data = []
         self.prefect_info_widget.clear()
         
-        for staff_attendance_data in self.data.attendance_data:
-            if isinstance(staff_attendance_data.staff, Prefect):
-                prefects_data[staff_attendance_data.staff.IUD] = self.get_punctuality_data(staff_attendance_data.staff)
+        for prefect in self.data.prefects.values():
+            prefects_data.append(self.get_punctuality_data(prefect))
         
         if prefects_data:
-            for index, (name, prefect_data) in enumerate(prefects_data.values()):
+            for index, (name, prefect_data) in enumerate(prefects_data):
                 self.prefect_info_widget.plot(None, prefect_data, label=name, marker='o', color=list(get_named_colors_mapping().values())[index])
     
     def teacher_data_changed(self):
         teacher_data = {}
         
-        for staff_attendance_data in self.data.attendance_data:
-            if isinstance(staff_attendance_data.staff, Teacher):
-                s_id = staff_attendance_data.staff.department.id
-                
-                teacher_data[s_id] = self.get_punctuality_data(staff_attendance_data.staff)
-                self.teacher_info_widgets[s_id].clear()
+        for teacher in self.data.teachers.values():
+            s_id = teacher.department.id
+            
+            teacher_data[s_id] = self.get_punctuality_data(teacher)
+            self.teacher_info_widgets[s_id].clear()
         
         if teacher_data:
             for index, (dep_id, (name, info)) in enumerate(teacher_data.items()):

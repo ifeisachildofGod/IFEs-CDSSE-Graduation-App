@@ -162,25 +162,6 @@ class LabeledField(QWidget):
     ):
         super().__init__(parent)
         
-        self.setStyleSheet(
-        """
-            /* Container */
-            QWidget.labeled-container {
-                border: 2px solid white;
-                border-radius: 8px;
-                /*background-color: #1e1e1e;*/
-            }
-
-            /* Floating title */
-            QLabel.labeled-title {
-                color: #9cdcfe;
-                font-size: 11px;
-                font-weight: 500;
-                padding: 0 4px;
-            }
-        """
-        )
-        
         self.inner_widget = inner_widget
 
         # -----------------------
@@ -491,7 +472,10 @@ class BarWidget(QWidget):
         self.main_layout.addWidget(self.main_keys_widget)
         self.main_layout.addWidget(self.bar_canvas)
     
-    def add_data(self, name: str, color, data: tuple[list, list]):
+    def add_data(self, name: str, color, data: tuple[list, list] | dict):
+        if isinstance(data, dict):
+            data = list(data), list(data.values())
+        
         keys_widget, keys_layout = create_widget(None, QHBoxLayout)
         
         keys_widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
@@ -512,6 +496,9 @@ class BarWidget(QWidget):
         self.bar_canvas.bar(data[0], data[1], display_values=True, color=color, edgecolor="black")
         
         self.main_keys_layout.addWidget(keys_widget, alignment=Qt.AlignmentFlag.AlignLeft)
+    
+    def set_title(self, title: str):
+        self.bar_canvas.set_vars(title, self.bar_canvas.x_label, self.bar_canvas.y_label)
     
     def clear(self):
         y_lim = self.bar_canvas.axes.get_ylim()
@@ -542,6 +529,9 @@ class GraphWidget(QWidget):
     
     def plot(self, x, y, **kwargs):
         self.graph.plot(x, y, **kwargs)
+    
+    def set_title(self, title: str):
+        self.graph.set_vars(title, self.graph.x_label, self.graph.y_label)
     
     def clear(self):
         self.graph.axes.clear()

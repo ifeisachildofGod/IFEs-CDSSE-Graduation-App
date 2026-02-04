@@ -1,13 +1,16 @@
 {
   "general": {
-    "teacher": "#005fac",
-    "prefect": "#0400ff",
+    "teacher": "#004781",
+    "prefect": "#010025",
     
-    "title_text_teacher": "#dadada",
+    "title_text_teacher": "#c2c2c2",
     "title_text_prefect": "#c2c2c2",
     
-    "text_teacher": "white",
-    "text_prefect": "white"
+    "border_teacher": "#f0f0f0",
+    "border_prefect": "#f0f0f0",
+
+    "text_teacher": "#ffffff",
+    "text_prefect": "#ffffff"
   },
 
   "theme":{

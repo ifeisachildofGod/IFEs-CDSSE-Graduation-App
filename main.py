@@ -43,12 +43,17 @@ class Window(QMainWindow):
             "Time": Time
         }
         
-        with open("src/default-data/default-app-data.json") as file:
-            app_data = process_from_data(json.load(file), data_class_mapping)
-        with open("src/default-data/default-staff.json") as file:
-            app_data.update(process_from_data(json.load(file), data_class_mapping))
+        if not self.file_path:
+            with open("src/default-data/default-app-data.json") as file:
+                app_data = process_from_data(json.load(file), data_class_mapping)
+            with open("src/default-data/default-staff.json") as file:
+                app_data.update(process_from_data(json.load(file), data_class_mapping))
         
-        self.data = AppData(**app_data) if not self.file_path else self.file_manager.get_file_data()
+            self.data = AppData(**app_data)
+        else:
+            self.file_manager.current_path = self.file_path
+            
+            self.data = self.file_manager.get_file_data()
         
         attendance_chart_widget = AttendanceBarWidget(self.data)
         punctuality_graph_widget = PunctualityGraphWidget(self.data)
@@ -152,8 +157,8 @@ class Window(QMainWindow):
             self._windows = []
         self._windows.append(new_window)
     
-    def load_callback(self):
-        with open(self.file_path, "rb") as f:
+    def load_callback(self, file_path):
+        with open(file_path, "rb") as f:
             return pickle.load(f)
     
     def closeEvent(self, a0):

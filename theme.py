@@ -250,15 +250,19 @@ stylesheet = '''
       border-color: {primary_hover};
   }}
 
-  .labeled-widget {{
-    border: 1px solid {hover3};
+  .labeled-container {{
+    border: 2px solid {border};
+    border-radius: 8px;
+    /*background-color: #1e1e1e;*/
   }}
-  .labeled-widget:disabled {{
+  .labeled-container:disabled {{
     border: 1px solid {disabled};
   }}
   
   .labeled-title {{
-		color: {hover3};
+    font-size: 11px;
+    font-weight: 500;
+    padding: 0 4px;
   }}
   .labeled-title:disabled {{
 		color: {disabled};
@@ -268,12 +272,29 @@ stylesheet = '''
     font-size: 25px;
   }}
   
+  QWidget.AttendanceTeacherEntryWidget * .labeled-container, QWidget.StaffListTeacherEntryWidget * .labeled-container {{
+    border: 1px solid {border_teacher};
+  }}
+  
+  QWidget.AttendancePrefectEntryWidget * .labeled-container, QWidget.StaffListPrefectEntryWidget * .labeled-container {{
+    border: 1px solid {border_prefect};
+  }}
+  
+  QWidget.AttendanceTeacherEntryWidget * .labeled-title, QWidget.StaffListTeacherEntryWidget * .labeled-title {{
+    color: {text_teacher};
+  }}
+  
+  QWidget.AttendancePrefectEntryWidget * .labeled-title, QWidget.StaffListPrefectEntryWidget * .labeled-title {{
+    color: {text_prefect};
+  }}
+  
   QWidget.AttendanceTeacherEntryWidget *, QWidget.StaffListTeacherEntryWidget * {{
-      background-color: {teacher};
+    background-color: {teacher};
   }}
   
   QWidget.AttendancePrefectEntryWidget *, QWidget.StaffListPrefectEntryWidget * {{
     background-color: {prefect};
+    color: {text_prefect};
   }}
   
   QWidget.StaffListTeacherEntryWidget,

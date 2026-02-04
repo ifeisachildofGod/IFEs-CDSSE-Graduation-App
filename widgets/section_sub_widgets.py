@@ -39,10 +39,10 @@ class BaseStaffListWidget(QWidget):
         
         self.options_button = QPushButton("☰")
         self.options_button.setProperty("class", "options-button")
-        self.options_button.setFixedSize(40, 40)
+        self.options_button.setFixedSize(40, 20)
         self.options_button.clicked.connect(self.toogle_options)
         
-        self.options_menu = OptionsMenu({"Set IUD": self.set_iud, "View Punctuality Data": self.view_punctuality_data})
+        self.options_menu = OptionsMenu({"Set IUD": self.set_iud, "View Data": self.view_data})
         self.options_menu.setProperty("class", "option-menu")
         
         main_info_layout.addWidget(self.options_button, alignment=Qt.AlignmentFlag.AlignTop)
@@ -64,7 +64,7 @@ class BaseStaffListWidget(QWidget):
             self.parent_widget.stack.setCurrentIndex(self.card_scanner_index)
             # self.comm_system.send_message("SCANNING")
     
-    def view_punctuality_data(self):
+    def view_data(self):
         # self.comm_system.send_message(f"staffPreformance:{self.staff.name.abrev}")
         staff_data_widget: StaffDataWidget = self.parent_widget.stack.widget(self.staff_data_index)
         staff_data_widget.set_self(self.staff)
@@ -76,10 +76,9 @@ class BaseStaffListWidget(QWidget):
             self.options_menu.hide()
         else:
             # Position below the options button
-            button_pos = self.options_button.mapToGlobal(QPoint(-130, self.options_button.height()))
+            button_pos = self.options_button.mapToGlobal(QPoint(-130, self.options_button.height() - 5))
             self.options_menu.move(button_pos)
             self.options_menu.show()
-
 
 class BaseAttendanceEntryWidget(QWidget):
     def __init__(self, name: str, data: AttendanceEntry, layout_type: type[QHBoxLayout] | type[QVBoxLayout] = QHBoxLayout):
@@ -98,7 +97,9 @@ class BaseAttendanceEntryWidget(QWidget):
         self.labeled_container = LabeledField(name, self.container, height_policy=QSizePolicy.Policy.Maximum)
         
         layout.addWidget(self.labeled_container)
+
     
+
 class AttendanceTeacherEntryWidget(BaseAttendanceEntryWidget):
     def __init__(self, data: AttendanceEntry):
         super().__init__("Teacher", data)
