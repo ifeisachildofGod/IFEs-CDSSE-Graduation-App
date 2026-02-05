@@ -176,7 +176,7 @@ class Window(QMainWindow):
         with open(self.file_path, "wb") as f:
             pickle.dump(self.data, f)
     
-    def open_callback(self, file_path: str | None = None, content: str | None = None):
+    def open_callback(self, file_path: str | None = None):
         new_window = Window(["", file_path])
         new_window.show()
         

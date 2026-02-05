@@ -96,10 +96,8 @@ class FileManager:
         file_path, _ = QFileDialog.getOpenFileName(self.parent, "Open File", "", self.file_filter)
         if file_path:
             try:
-                with open(file_path, "rb") as f:
-                    contents = pickle.load(f)
                 if self.open_callback:
-                    self.open_callback(file_path, contents)
+                    self.open_callback(file_path)
             except Exception as e:
                 QMessageBox.critical(self.parent, "Open Error", str(e))
 
