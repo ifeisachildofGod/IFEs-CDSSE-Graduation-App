@@ -85,7 +85,7 @@ stylesheet = '''
   }}
   
   QMenuBar {{
-    background-color: {primary};
+    background-color: {primary_pressed};
     color: {primary_text};
   }}
 
@@ -269,7 +269,7 @@ stylesheet = '''
   }}
   
   .options-button {{
-    font-size: 25px;
+    font-size: 20px;
   }}
   
   QWidget.AttendanceTeacherEntryWidget * .labeled-container, QWidget.StaffListTeacherEntryWidget * .labeled-container {{
@@ -357,6 +357,7 @@ stylesheet = '''
   
   .labeled-widget {{
     border-radius: 6px;
+    border: 1px solid {border};
   }}
 
 '''

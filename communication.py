@@ -4,13 +4,18 @@ from others import Thread
 
 "Name:Variable-Type(Data)|...|..."
 
+class PasswordException(Exception):
+    pass
+
 @dataclass
 class CommDevice:
     data_signal: pyBoundSignal
     connection_changed: pyBoundSignal
+    
     port: int | str
     addr: str | None = None
     baud_rate: int | None = None
+    pswd: str | None = None
 
 class BaseCommSystem:
     def __init__(self, device: CommDevice, error_func: Callable[[Exception], None]):
@@ -52,9 +57,6 @@ class BaseCommSystem:
     def start_connection(self):
         if self.connected:
             raise Exception("Comm device already connected")
-        
-        self.connected = True
-        self.device.connection_changed.emit(self.connected)
         
         self.connection_thread = Thread(self._connect)
         self.connection_thread.crashed.connect(self._crashed)
@@ -106,14 +108,38 @@ class BaseCommSystem:
             
             time.sleep(2)  # Wait for Target to initialize
             
+            pswd_err = PasswordException("Internal password check failed\nDevice is not a registered attendance device")
+            
+            pswd_check_count = 0
+            while True:
+                serial_target.write((self.device.pswd + "\n").encode())
+                
+                if serial_target.in_waiting > 0:
+                    response = serial_target.readline().decode().strip()
+                    
+                    if self.device.pswd == response:
+                        self.connected = True
+                        break
+                    else:
+                        raise pswd_err
+                
+                pswd_check_count += 1
+                
+                if pswd_check_count >= 15:
+                    raise pswd_err
+                
+                time.sleep(1)
+            
+            self.device.connection_changed.emit(self.connected)
+            
             while self.connected:
                 if self.msg_buffer:
-                    print("Data send:", self.msg_buffer[0])
-                    serial_target.write(self.msg_buffer.pop(0).encode())
+                    # print("Data send:", self.msg_buffer[0])
+                    serial_target.write((self.msg_buffer.pop(0) + "\n").encode())
                 
                 if serial_target.in_waiting > 0:
                     bytetext = serial_target.readline()
-                    print("Data recv:", bytetext.decode())
+                    # print("Data recv:", bytetext.decode())
                     msg_recv = self._init_process_data(bytetext)
                     
                     if msg_recv:

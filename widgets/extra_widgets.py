@@ -145,7 +145,7 @@ class CardScanScreenWidget(BaseExtraWidget):
             }
         """)
         
-        scan_img = Image("src/icons-and-images/scan.png", height=330)
+        scan_img = Image("src/images/scan.png", height=330)
         scan_img.setStyleSheet("margin-bottom: 20px;")
         self.main_layout.addWidget(scan_img, alignment=Qt.AlignmentFlag.AlignCenter)
         
@@ -165,8 +165,8 @@ class CardScanScreenWidget(BaseExtraWidget):
         self.comm_system.connection_changed_signal.connect(self.connection_changed)
         self.iud_changed = False
     
-    def set_self(self, staff: Staff, staff_index: int, iud_label: QLabel):
-        super().set_self(staff, staff_index)
+    def set_self(self, staff: Staff, iud_label: QLabel):
+        super().set_self(staff)
         
         self.iud_label = iud_label
         
@@ -174,8 +174,8 @@ class CardScanScreenWidget(BaseExtraWidget):
     
     def finished(self):
         self.iud_label = None
-        if not self.iud_changed:
-            self.comm_system.send_message("NOT SCANNING")
+        if self.iud_changed:
+            self.comm_system.send_message(f"LCD:{self.staff.name.abrev} IUD_-_set to {self.staff.IUD}")
         return super().finished()
     
     def connection_changed(self, state: bool):
@@ -183,7 +183,7 @@ class CardScanScreenWidget(BaseExtraWidget):
             self.finished()
     
     def scanned(self, data: str):
-        if self.parent_widget.stack.indexOf(self) == self.parent_widget.stack.currentIndex():
+        if self.parent_widget.stack.currentIndex() == self.parent_widget.stack.indexOf(self):
             self.staff.IUD = data
             self.iud_label.setText(self.staff.IUD)
             
@@ -214,7 +214,6 @@ class SetupScreen(QDialog):
         self.connect_clicked = False
         self.connect_only_widgets = []
         self.data: dict[str, str | int | Literal["bt", "ser"]] = {}
-        
         
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -267,6 +266,7 @@ class SetupScreen(QDialog):
         
         self.baud_rate_selector_widget = QComboBox()
         self.baud_rate_selector_widget.addItems(baud_rate_options)
+        self.baud_rate_selector_widget.setCurrentIndex(baud_rate_options.index("9600"))
         
         serial_baud_rate_layout.addWidget(QLabel("Baud rate"))
         serial_baud_rate_layout.addWidget(self.baud_rate_selector_widget)
@@ -340,8 +340,9 @@ class SetupScreen(QDialog):
         
         if not self.connector.connected:
             self.connector.device.port = self.data.get("port", "")
-            self.connector.device.addr = self.data.get("addr", None)
-            self.connector.device.baud_rate = self.data.get("baud_rate", None)
+            self.connector.device.addr = self.data.get("addr")
+            self.connector.device.baud_rate = self.data.get("baud_rate")
+            self.connector.device.pswd = self.data.get("key")
             
             if self.data.get("connection-type", None) is not None:
                 self.connector.set_bluetooth(self.data["connection-type"] == "bt")
@@ -427,7 +428,9 @@ class SetupScreen(QDialog):
         def func():
             self.connect_clicked = True
             self.connected = True
-                
+            
+            self.data["key"] = "83ab579eee7f8a98c765"
+            
             if a0 == -1:
                 self.data["connection-type"] = "ser"
                 self.data["port"] = self.port_selector_widget.currentText()
@@ -462,6 +465,7 @@ class SetupScreen(QDialog):
                 self.comm_disconnect()
                 
                 a0.ignore()
+                
                 return
             
         return super().closeEvent(a0)

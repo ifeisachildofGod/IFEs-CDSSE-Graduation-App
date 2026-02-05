@@ -107,13 +107,14 @@ class _FilterCategoriesWidget(BaseListWidget):
 class AttendanceWidget(BaseScrollListWidget):
     comm_signal = pySignal(str)
     
-    def __init__(self, parent_widget: TabViewWidget, data: AppData, attendance_chart_widget: "AttendanceBarWidget", punctuality_graph_widget: "PunctualityGraphWidget", comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal):
+    def __init__(self, parent_widget: TabViewWidget, data: AppData, attendance_chart_widget: "AttendanceBarWidget", punctuality_graph_widget: "PunctualityGraphWidget", comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal, card_scanner_index: int):
         super().__init__()
         
         self.data = data
         self.comm_system = comm_system
         self.parent_widget = parent_widget
         self.saved_state_changed = saved_state_changed
+        self.card_scanner_index = card_scanner_index
         
         self.attendance_chart_widget = attendance_chart_widget
         self.punctuality_graph_widget = punctuality_graph_widget
@@ -130,12 +131,12 @@ class AttendanceWidget(BaseScrollListWidget):
         self.filter_views = {}
         
         self.filter_data = [
-            [["All (Staff)", "Prefects", "Teachers"], 0],
-            [["All (Timelines)", "Today", "This week", "This month", "This year", "Last year", "Last 5 years", "Last decade"] + self.other_years, 0],
-            [["Default (Display Format)", "Daily", "Weekly", "Monthly", "Yearly", "Dates (Categorised)", "Daily (Categorised)", "Monthly (Categorised)", "Yearly (Categorised)"], 0]
+            ["All (Staff)", "Prefects", "Teachers"],
+            ["All (Timelines)", "Today", "This week", "This month", "This year", "Last year", "Last 5 years", "Last decade"] + self.other_years,
+            ["Default (Display Format)", "Daily", "Weekly", "Monthly", "Yearly", "Dates (Categorised)", "Daily (Categorised)", "Monthly (Categorised)", "Yearly (Categorised)"]
         ]
-        self.comb_index_mapping = {}
-        filter_combinations = [tuple(reversed(p)) for p in product(*reversed([range(len(l)) for l, _ in self.filter_data]))]
+        
+        filter_combinations = [tuple(reversed(p)) for p in product(*reversed([range(len(l)) for l in self.filter_data]))]
         
         for index, comb in enumerate(filter_combinations):
             widget = self._determine_filter_widget_type(comb)
@@ -155,7 +156,7 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.filter_comboboxes = []
         
-        for index, (f_data, _) in enumerate(self.filter_data):
+        for index, f_data in enumerate(self.filter_data):
             filter = QComboBox()
             
             filter.addItems(f_data)
@@ -444,15 +445,15 @@ class AttendanceWidget(BaseScrollListWidget):
     def current_period(self):
         period = Period.str_to_period(time.ctime())
         
-        period.time.hour = random.randint(0, 24)
-        period.time.min = random.randint(0, 60)
-        period.time.sec = random.randint(0, 60)
+        # period.time.hour = random.randint(0, 24)
+        # period.time.min = random.randint(0, 60)
+        # period.time.sec = random.randint(0, 60)
         
-        period.month = random.choice(list(MONTHS_OF_THE_YEAR))
+        # period.month = random.choice(list(MONTHS_OF_THE_YEAR))
         
-        prev_date = period.date % MONTHS_OF_THE_YEAR[period.month]
-        period.date = random.randint(1, MONTHS_OF_THE_YEAR[period.month])
-        period.day = DAYS_OF_THE_WEEK[(DAYS_OF_THE_WEEK.index(period.day) + period.date - prev_date) % 7]
+        # prev_date = period.date % MONTHS_OF_THE_YEAR[period.month]
+        # period.date = random.randint(1, MONTHS_OF_THE_YEAR[period.month])
+        # period.day = DAYS_OF_THE_WEEK[(DAYS_OF_THE_WEEK.index(period.day) + period.date - prev_date) % 7]
         
         return period
     
@@ -505,33 +506,36 @@ class AttendanceWidget(BaseScrollListWidget):
         time_layout.addWidget(prefect_widget, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
     
     def add_new_attendance_log(self, IUD: str):
-        staff = next((prefect for _, prefect in self.data.prefects.items() if prefect.IUD == IUD), None)
-        
-        if staff is None:
-            staff = next((teacher for _, teacher in self.data.teachers.items() if teacher.IUD == IUD), None)
+        if self.parent_widget.stack.currentIndex() != self.card_scanner_index:
+            staff = next((prefect for _, prefect in self.data.prefects.items() if prefect.IUD == IUD), None)
             
             if staff is None:
-                # self.comm_system.send_message("state:8")
-                QMessageBox.warning(self.parent_widget, "CardScannerError", f"No staff is linked to this card (IUD: {IUD})")
+                staff = next((teacher for _, teacher in self.data.teachers.items() if teacher.IUD == IUD), None)
                 
+                if staff is None:
+                    self.comm_system.send_message(f"UNREGISTERED {IUD}")
+                    QMessageBox.warning(self.parent_widget, "CardScannerError", f"No staff is linked to this card (IUD: {IUD})")
+                    
+                    return
+            
+            period = self.current_period()
+            
+            another_present = next((True for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), False)
+            ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
+            
+            is_ci = is_check_in(period.time, ct_data[0], ct_data[1])
+            
+            if another_present and is_ci:
                 return
-        
-        period = self.current_period()
-        
-        another_present = next((True for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), False)
-        ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
-        
-        is_ci = is_check_in(period.time, ct_data[0], ct_data[1])
-        
-        if another_present and is_ci:
-            return
-        
-        entry = AttendanceEntry(period, staff, is_ci)
-        
-        self.data.attendance_data.append(entry)
-        staff.attendance.append(entry)
-        
-        self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
+            
+            entry = AttendanceEntry(period, staff, is_ci)
+            
+            self.data.attendance_data.append(entry)
+            staff.attendance.append(entry)
+            
+            self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
+            
+            self.comm_system.send_message(f"LCD:{("Welcome" if not another_present else "Goodbye")} {staff.name.abrev}_-_{entry.period.time.hour}:{entry.period.time.min}:{entry.period.time.sec}")
     
     def keyPressEvent(self, a0):
         if a0.text() == "a":

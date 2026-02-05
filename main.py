@@ -7,15 +7,36 @@ class Window(QMainWindow):
     connection_changed = pySignal(bool)
     saved_state_changed = pySignal(bool)
     
-    def __init__(self, file_path: str | None = None) -> None:
+    def __init__(self, arguments: list[str]) -> None:
         super().__init__()
         self.title = "CDSSE Attendance Manager"
         
-        self.file_path = file_path
+        self.flag_mapping = {
+            "-d": self._default_flag,
+            "-default": self._default_flag,
+            
+            "--arg--": self._arg_flags
+        }
+        
+        self.file_path = None
+        self._default_file_path = None
+        self.arguments = arguments
+        
+        for i, arg in enumerate(self.arguments):
+            arg = arg.strip()
+            
+            if "=" in arg:
+                n, v = arg.split("=")
+                
+                self.flag_mapping[n](v)
+            elif arg.startswith("--") and not arg.endswith("--"):
+                self.flag_mapping[arg[2:]]()
+            elif i:
+                self.flag_mapping["--arg--"](i, arg)
         
         self.target_connector = BaseCommSystem(CommDevice(self.comm_signal, self.connection_changed, "", None, None), self.connection_error_func)
         self.connection_set_up_screen = SetupScreen(self, self.target_connector)
-        self.file_manager = FileManager(self, "CDSSE Attendance Files (*.cdat)")
+        self.file_manager = FileManager(self, self.file_path, "CDSSE Attendance Files (*.cdat)")
         self.file_manager.set_callbacks(self.save_callback, self.open_callback, self.load_callback)
         
         self.create_menu_bar()
@@ -44,12 +65,10 @@ class Window(QMainWindow):
         }
         
         if not self.file_path:
-            with open("src/default-data/default-app-data.json") as file:
+            with open(self._default_file_path or "src/default-data/default.json") as file:
                 app_data = process_from_data(json.load(file), data_class_mapping)
-            with open("src/default-data/default-staff.json") as file:
-                app_data.update(process_from_data(json.load(file), data_class_mapping))
-        
-            self.data = AppData(**app_data)
+                
+                self.data = AppData(**app_data)
         else:
             self.file_manager.current_path = self.file_path
             
@@ -60,10 +79,10 @@ class Window(QMainWindow):
         
         # Create stacked widget for content
         attendance_widget = TabViewWidget("horizontal")
-        attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed), self.comm_send_screen_changed("state:1"))
-        attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, self.target_connector, 4, 5), self.comm_send_screen_changed("state:4"))
-        attendance_widget.add("Attendance Chart", attendance_chart_widget, self.comm_send_screen_changed("state:2"))
-        attendance_widget.add("Punctuality Graph", punctuality_graph_widget, self.comm_send_screen_changed("state:3"))
+        attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed, 4))
+        attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, self.target_connector, 4, 5))
+        attendance_widget.add("Attendance Chart", attendance_chart_widget)
+        attendance_widget.add("Punctuality Graph", punctuality_graph_widget)
         attendance_widget.stack.addWidget(CardScanScreenWidget(self.target_connector, attendance_widget, self.saved_state_changed))
         attendance_widget.stack.addWidget(StaffDataWidget(self.data, attendance_widget))
         
@@ -88,6 +107,14 @@ class Window(QMainWindow):
         
         self.saved_state_changed.emit(True)
     
+    def _arg_flags(self, index: int, arg: str):
+        assert index == len(self.arguments) - 1
+        
+        self.file_path = arg
+    
+    def _default_flag(self, arg: str):
+        self._default_file_path = arg
+    
     def saved_state_changed_func(self, value: bool):
         suffix = f" - {self.file_path}" + ("" if value else " *Unsaved")
         self.data.variables["saved"] = value
@@ -98,13 +125,13 @@ class Window(QMainWindow):
         self.target_connector.stop_connection()
         self.connection_set_up_screen.comm_disconnect()
     
-    def comm_send_screen_changed(self, message: str):
-        def scr_changed(_):
-            if self.target_connector.connected:
-                pass
-                # self.target_connector.send_message(message)
+    # def comm_send_screen_changed(self, message: str):
+    #     def scr_changed(_):
+    #         if self.target_connector.connected:
+    #             pass
+    #             # self.target_connector.send_message(message)
         
-        return scr_changed
+    #     return scr_changed
     
     def activate_connection_screen(self):
         self.connection_set_up_screen.exec()
@@ -150,7 +177,7 @@ class Window(QMainWindow):
             pickle.dump(self.data, f)
     
     def open_callback(self, file_path: str | None = None, content: str | None = None):
-        new_window = Window(file_path, content)
+        new_window = Window(["", file_path])
         new_window.show()
         
         if not hasattr(self, '_windows'):
@@ -179,15 +206,11 @@ class Window(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # app.setWindowIcon(QIcon("src/icons-and-images/logo.png"))
+    app.setWindowIcon(QIcon("src/images/logo.png"))
     
     THEME_MANAGER.apply_theme(app)
     
-    file_path = None
-    if len(app.arguments()) > 1:
-        file_path = app.arguments()[1]
-    
-    window = Window(file_path)
+    window = Window(app.arguments())
     window.showMaximized()
     
     sys.exit(app.exec())

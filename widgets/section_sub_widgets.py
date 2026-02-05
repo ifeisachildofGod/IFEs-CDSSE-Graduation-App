@@ -17,6 +17,8 @@ class BaseStaffListWidget(QWidget):
         self.main_layout = QVBoxLayout()
         self.container.setLayout(self.main_layout)
         
+        self.container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        
         layout.addWidget(self.container)
         
         self.staff_data_index = staff_data_index
@@ -39,7 +41,7 @@ class BaseStaffListWidget(QWidget):
         
         self.options_button = QPushButton("☰")
         self.options_button.setProperty("class", "options-button")
-        self.options_button.setFixedSize(40, 20)
+        self.options_button.setFixedSize(40, 40)
         self.options_button.clicked.connect(self.toogle_options)
         
         self.options_menu = OptionsMenu({"Set IUD": self.set_iud, "View Data": self.view_data})
@@ -49,7 +51,7 @@ class BaseStaffListWidget(QWidget):
         
         _, self.sub_info_layout = create_widget(self.main_layout, QHBoxLayout)
         
-        self.iud_label = QLabel(self.staff.IUD if self.staff.IUD is not None else "No set IUD")
+        self.iud_label = QLabel(self.staff.IUD if self.staff.IUD is not None else "No IUD set")
         self.iud_label.setStyleSheet("font-weight: bold;")
         
         self.sub_info_layout.addWidget(LabeledField("IUD", self.iud_label), alignment=Qt.AlignmentFlag.AlignLeft)
@@ -62,10 +64,11 @@ class BaseStaffListWidget(QWidget):
             card_scanner_widget.set_self(self.staff, self.iud_label)
             
             self.parent_widget.stack.setCurrentIndex(self.card_scanner_index)
-            # self.comm_system.send_message("SCANNING")
+            self.comm_system.send_message("SCANNING")
     
     def view_data(self):
-        # self.comm_system.send_message(f"staffPreformance:{self.staff.name.abrev}")
+        self.comm_system.send_message(f"LCD:{self.staff.name.abrev}'s_-_Performance Data")
+        
         staff_data_widget: StaffDataWidget = self.parent_widget.stack.widget(self.staff_data_index)
         staff_data_widget.set_self(self.staff)
         
@@ -76,7 +79,7 @@ class BaseStaffListWidget(QWidget):
             self.options_menu.hide()
         else:
             # Position below the options button
-            button_pos = self.options_button.mapToGlobal(QPoint(-130, self.options_button.height() - 5))
+            button_pos = self.options_button.mapToGlobal(QPoint(-65, self.options_button.height() - 5))
             self.options_menu.move(button_pos)
             self.options_menu.show()
 
