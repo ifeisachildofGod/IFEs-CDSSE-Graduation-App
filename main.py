@@ -79,7 +79,7 @@ class Window(QMainWindow):
         
         # Create stacked widget for content
         attendance_widget = TabViewWidget("horizontal")
-        attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed, 4))
+        attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed, self.file_manager, 4))
         attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, self.target_connector, 4, 5))
         attendance_widget.add("Attendance Chart", attendance_chart_widget)
         attendance_widget.add("Punctuality Graph", punctuality_graph_widget)
@@ -206,7 +206,7 @@ class Window(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    app.setWindowIcon(QIcon("src/images/logo.png"))
+    app.setWindowIcon(QIcon("src/images/logo.ico"))
     
     THEME_MANAGER.apply_theme(app)
     

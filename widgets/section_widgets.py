@@ -107,13 +107,14 @@ class _FilterCategoriesWidget(BaseListWidget):
 class AttendanceWidget(BaseScrollListWidget):
     comm_signal = pySignal(str)
     
-    def __init__(self, parent_widget: TabViewWidget, data: AppData, attendance_chart_widget: "AttendanceBarWidget", punctuality_graph_widget: "PunctualityGraphWidget", comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal, card_scanner_index: int):
+    def __init__(self, parent_widget: TabViewWidget, data: AppData, attendance_chart_widget: "AttendanceBarWidget", punctuality_graph_widget: "PunctualityGraphWidget", comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal, file_manager: FileManager, card_scanner_index: int):
         super().__init__()
         
         self.data = data
         self.comm_system = comm_system
         self.parent_widget = parent_widget
         self.saved_state_changed = saved_state_changed
+        self.file_manager = file_manager
         self.card_scanner_index = card_scanner_index
         
         self.attendance_chart_widget = attendance_chart_widget
@@ -168,10 +169,10 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.filter_comboboxes[0].setCurrentIndex(0)
         
-        self._layout.insertWidget(0, filter_widget, alignment=Qt.AlignmentFlag.AlignRight)
-        
         for attendance in self.data.attendance_data:
             self._add_attendance_log(attendance)
+        
+        self._layout.insertWidget(0, filter_widget, alignment=Qt.AlignmentFlag.AlignRight)
     
     def _determine_filter_widget_type(self, comb: tuple[int, ...]):
         return BaseListWidget(self.scroll_widget) if comb[1] in (0, 1) and comb[2] in (0, ) else _FilterCategoriesWidget(self.scroll_widget)
@@ -536,6 +537,9 @@ class AttendanceWidget(BaseScrollListWidget):
             self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
             
             self.comm_system.send_message(f"LCD:{("Welcome" if not another_present else "Goodbye")} {staff.name.abrev}_-_{entry.period.time.hour}:{entry.period.time.min}:{entry.period.time.sec}")
+            
+            if self.file_manager.current_path is not None:
+                self.file_manager.save()
     
     def keyPressEvent(self, a0):
         if a0.text() == "a":
