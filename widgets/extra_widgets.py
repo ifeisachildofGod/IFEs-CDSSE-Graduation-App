@@ -4,7 +4,11 @@ from theme import THEME_MANAGER
 from functions_and_uncategorized import *
 
 class SearchEdit[T](QFrame):
-    def __init__(self, get_search_scope_callback: Callable[[], list[tuple[T, str, tuple[Optional[str], Optional[str], Optional[str]]]]], goto_search_callback: Optional[Callable[[T], None]] = None, unallowed_characters: Optional[list[str]] = None):
+    def __init__(
+        self,
+        get_search_scope_callback: Callable[[], list[tuple[T, str, tuple[Optional[str], Optional[str], Optional[str]], list[Optional[str]]]]],
+        goto_search_callback: Optional[Callable[[T], None]] = None, unallowed_characters: Optional[list[str]] = None
+    ):
         super().__init__(None)
         
         self.get_search_scope_callback = get_search_scope_callback
@@ -30,7 +34,7 @@ class SearchEdit[T](QFrame):
         self.search_options_widget, self.search_options_layout = create_scrollable_widget(None, QVBoxLayout)
         self.search_options_widget.setProperty("class", "option-menu")
         self.search_options_widget.setFixedWidth(500 - 4)
-        self.search_options_widget.setMaximumHeight(200)
+        self.search_options_widget.setFixedHeight(220)
         
         self.main_layout.addWidget(self.search_le, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(self.search_options_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
@@ -39,27 +43,27 @@ class SearchEdit[T](QFrame):
         if next((False for c in self.unallowed_characters if c in text), True):
             score_data = sorted(
                 [
-                    (data_point, (search_name, right_text, bottom_text, end_text), self._get_find_score(text, search_name, (right_text, bottom_text, end_text)))
-                    for data_point, search_name, (right_text, bottom_text, end_text) in
+                    (data_point, (search_name, right_text, bottom_text, end_text), self._get_find_score(text, search_name, (right_text, bottom_text, end_text), backgrounds_texts))
+                    for data_point, search_name, (right_text, bottom_text, end_text), backgrounds_texts in
                     self.get_search_scope_callback()
                 ],
                 key=lambda params: params[2][0],
                 reverse=True
             )
             
-            options = {
-                self._stylize_text_indices(text, f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;", right_text, bottom_text, end_text, indices): self._make_find_func(data_point)
+            options = [
+                (self._stylize_text_indices(text, f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;", right_text, bottom_text, end_text, indices), self._make_find_func(data_point))
                 for data_point, (text, right_text, bottom_text, end_text), (score, indices) in
-                score_data[:10]
+                score_data
                 if score != -1
-                }
+                ]
             
             if options:
                 clear_layout(self.search_options_layout)
                 
                 self.search_options_layout.addStretch()
                 
-                for option_index, (option_name, option_func) in enumerate(options.items()):
+                for option_index, (option_name, option_func) in enumerate(options):
                     btn = QLabel(option_name)
                     btn.setProperty("class", "QPushButton")
                     btn.mousePressEvent = self._make_option_clicked_func(option_func)
@@ -80,7 +84,13 @@ class SearchEdit[T](QFrame):
         
         return func
     
-    def _get_find_score(self, text: str, potential_match: str, extra_text_data: Optional[tuple[Optional[str], Optional[str], Optional[str]]] = None):
+    def _get_find_score(
+        self,
+        text: str,
+        potential_match: str,
+        extra_text_data: Optional[tuple[Optional[str], Optional[str], Optional[str]]] = None,
+        backgrounds_texts: Optional[list[Optional[str]]] = None
+    ):
         l_text = text.lower()
         l_target = potential_match.lower()
         
@@ -91,6 +101,8 @@ class SearchEdit[T](QFrame):
         target_len = len(l_target)
         
         index = 0
+        
+        bg_data = []
         
         score_indices = []
         right_indices = []
@@ -113,6 +125,9 @@ class SearchEdit[T](QFrame):
             if end_text:
                 end_score, end_indices = self._get_find_score(text, end_text)
                 end_indices = end_indices[0]
+        
+        if backgrounds_texts:
+            bg_data = [self._get_find_score(text, bg_text)[0] for bg_text in backgrounds_texts if bg_text is not None]
         
         for i, c in enumerate(l_text):
             f_index = l_target[index:].find(c)
@@ -139,6 +154,10 @@ class SearchEdit[T](QFrame):
             return (right_score + bottom_score) / 20, ([], right_indices, bottom_indices, [])
         elif end_score != -1:
             return end_score / 20, ([], [], [], end_indices)
+        elif bg_data:
+            for bg_score in bg_data:
+                if bg_score != -1:
+                    return bg_score / 20, ([], [], [], [])
         
         return -1, ([], [], [], [])
     

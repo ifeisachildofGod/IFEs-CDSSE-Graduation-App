@@ -40,9 +40,9 @@ class AttendanceWidget(BaseScrollListWidget):
             ["Default (Display Format)", "Daily", "Weekly", "Monthly", "Yearly", "Dates (Categorised)", "Daily (Categorised)", "Monthly (Categorised)", "Yearly (Categorised)"]
         ]
         
-        filter_combinations = [tuple(reversed(p)) for p in product(*reversed([range(len(l)) for l in self.filter_data]))]
+        self.filter_combinations = [tuple(reversed(p)) for p in product(*reversed([range(len(l)) for l in self.filter_data]))]
         
-        for index, comb in enumerate(filter_combinations):
+        for comb in self.filter_combinations:
             widget = self._determine_filter_widget_type(comb)
             
             self.stack.addWidget(widget)
@@ -60,8 +60,8 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.search_edit = SearchEdit(self._get_search_scope, self._goto_search)
         
-        self.find_pb = QPushButton("Search Staff")
-        self.find_pb.setFixedWidth(500)
+        self.find_pb = QPushButton("Search Attendances")
+        self.find_pb.setFixedWidth(self.search_edit.width())
         self.find_pb.setStyleSheet(f"background-color: {THEME_MANAGER.pallete_get("bg2")}; border: 1px solid {THEME_MANAGER.pallete_get("border")};")
         self.find_pb.clicked.connect(self._open_search_edit)
         
@@ -87,30 +87,82 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self._layout.insertWidget(0, self.filter_widget)
     
-    def _goto_search(self, sw: AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget | tuple[DropdownLabeledField, AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget]):
-        if isinstance(sw, tuple):
-            pass
+    def _goto_search(self, sw: AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget | list[DropdownLabeledField | AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget]):
+        if isinstance(sw, list):
+            for w in sw:
+                if isinstance(w, DropdownLabeledField):
+                    w.setExpanded(True)
+                
+                self.scroll_widget.verticalScrollBar().setValue(self.mapToGlobal(QPoint(w.x(), w.y())).y())
         else:
             self.scroll_widget.verticalScrollBar().setValue(sw.y())
     
     def _get_search_scope(self):
         parent_widget: BaseListWidget | BaseFilterCategoriesWidget = self.stack.currentWidget()
         
-        if isinstance(parent_widget, BaseListWidget):
-            widgets: list[AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget] = parent_widget.get_widgets()
+        if isinstance(parent_widget, BaseFilterCategoriesWidget):
+            widgets: dict = parent_widget.get_widgets()
             
             return (
                 sorted(
                     [
-                        (sw, sw.staff.name.full_name(), (sw.data.period.to_str(), f"{f"{sw.staff.IUD} ° " if sw.staff.IUD else ""}{sw.staff.name.abrev}", "Prefect" if sw.staff.id in self.data.prefects else "Teacher"))
-                        for sw in
+                        (
+                            sw_list,
+                            sw_list[-1].staff.name.full_name(),
+                            (
+                                sw_list[-1].staff.name.abrev,
+                                sw_list[-1].data.period.to_str(),
+                                "Prefect" if isinstance(sw_list[-1].staff, Prefect) else "Teacher"
+                                ),
+                            [
+                                sw_list[-1].staff.IUD,    
+                                sw_list[-1].staff.name.other,
+                                sw_list[-1].staff.post_name if isinstance(sw_list[-1].staff, Prefect) else sw_list[-1].staff.department.name,
+                                sw_list[-1].staff.cls.name if isinstance(sw_list[-1].staff, Prefect) else None
+                                ] + (
+                                    (list(set(flatten(sw_list[-1].staff.duties.values()))) + list(sw_list[-1].staff.duties))
+                                    if isinstance(sw_list[-1].staff, Prefect) else
+                                    ([s.name for s in sw_list[-1].staff.subjects] + [s.cls.name for s in sw_list[-1].staff.subjects] + list(flatten([[d for d, _ in s.periods] for s in sw_list[-1].staff.subjects])))
+                                    )
+                        )
+                        for sw_list in
                         widgets
                         ],
                     key=lambda params: params[1]
                     )
                 )
         else:
-            return []  # Sort out later
+            widgets: list[AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget] = parent_widget.get_widgets()
+            
+            return (
+                sorted(
+                    [
+                        (
+                            sw,
+                            sw.staff.name.full_name(),
+                            (
+                                sw.staff.name.abrev,
+                                sw.data.period.to_str(),
+                                "Prefect" if isinstance(sw.staff, Prefect) else "Teacher"
+                                ),
+                            [
+                                sw.staff.IUD,    
+                                sw.staff.name.other,
+                                sw.staff.post_name if isinstance(sw.staff, Prefect) else sw.staff.department.name,
+                                sw.staff.cls.name if isinstance(sw.staff, Prefect) else None
+                                ] + (
+                                    (list(set(flatten(sw.staff.duties.values()))) + list(sw.staff.duties))
+                                    if isinstance(sw.staff, Prefect) else
+                                    ([s.name for s in sw.staff.subjects] + [s.cls.name for s in sw.staff.subjects] + list(flatten([[d for d, _ in s.periods] for s in sw.staff.subjects])))
+                                    )
+                        )
+                        for sw in
+                        widgets
+                        ],
+                    key=lambda params: params[1]
+                    )
+                )
+            
     
     def _open_search_edit(self):
         self.search_edit.move(self.filter_widget.mapToGlobal(QPoint(self.find_pb.x(), self.find_pb.y())))
@@ -403,7 +455,7 @@ class AttendanceWidget(BaseScrollListWidget):
         return period
     
     def create_time_labels(self):
-        _, time_layout = create_widget(self.main_layout, QHBoxLayout)
+        time_widget, time_layout = create_widget(None, QHBoxLayout)
         
         teacher_widget, teacher_layout = create_widget(self.main_layout, QHBoxLayout)
         
@@ -449,6 +501,8 @@ class AttendanceWidget(BaseScrollListWidget):
         
         time_layout.addWidget(teacher_widget, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         time_layout.addWidget(prefect_widget, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+        
+        self.main_layout.insertWidget(0, time_widget)
     
     def add_new_attendance_log(self, IUD: str):
         if self.parent_widget.stack.currentIndex() != self.card_scanner_index:
@@ -579,12 +633,29 @@ class StaffListWidget(BaseScrollListWidget):
         return (
             sorted(
                 [
-                    (sw, sw.staff.name.full_name(), (sw.staff.name.abrev, sw.staff.IUD, "Prefect" if sw.staff.id in self.data.prefects else "Teacher"))
+                    (
+                        sw,
+                        sw.staff.name.full_name(),
+                        (
+                            sw.staff.name.abrev,
+                            sw.staff.IUD,
+                            "Prefect" if isinstance(sw.staff, Prefect) else "Teacher"
+                            ),
+                        [
+                            sw.staff.name.other,
+                            sw.staff.post_name if isinstance(sw.staff, Prefect) else sw.staff.department.name,
+                            sw.staff.cls.name if isinstance(sw.staff, Prefect) else None
+                            ] + (
+                                (list(set(flatten(sw.staff.duties.values()))) + list(sw.staff.duties))
+                                if isinstance(sw.staff, Prefect) else
+                                ([s.name for s in sw.staff.subjects] + [s.cls.name for s in sw.staff.subjects] + list(flatten([[d for d, _ in s.periods] for s in sw.staff.subjects])))
+                                )
+                        )
                     for sw in
                     self._staffs_viewed.values()
                     if (
                         self.filter_cb.currentIndex() == 0 or
-                        (sw.staff.id in self.data.prefects and self.filter_cb.currentIndex() == 1) or
+                        (isinstance(sw.staff, Prefect) and self.filter_cb.currentIndex() == 1) or
                         (sw.staff.id in self.data.teachers and self.filter_cb.currentIndex() == 2)
                         )
                     ],

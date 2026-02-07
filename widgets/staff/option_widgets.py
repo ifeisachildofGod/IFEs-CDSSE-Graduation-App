@@ -17,7 +17,17 @@ class BaseOptionsWidget(QWidget):
         
         cancel_button = QPushButton("×")
         cancel_button.setFixedSize(30, 30)
-        cancel_button.setStyleSheet("font-size: 25px; border-radius: 15px; padding: 0px")
+        cancel_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                font-size: 30px;
+                border-radius: 15px;
+                padding: 0px;
+            }}
+            QPushButton:hover {{
+                color: {THEME_MANAGER.pallete_get("hover3")};
+            }}
+        """)
         cancel_button.clicked.connect(self.finished)
         
         upper_layout.addStretch()
@@ -34,6 +44,7 @@ class BaseOptionsWidget(QWidget):
         
         self.staff = None
         self.staff_index = None
+
 
 class StaffDataWidget(BaseOptionsWidget):
     def __init__(self, data: AppData, parent_widget: TabViewWidget):

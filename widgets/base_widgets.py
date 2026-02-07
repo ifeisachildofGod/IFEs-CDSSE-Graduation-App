@@ -5,6 +5,7 @@ from functions_and_uncategorized import *
 
 from widgets.extra_widgets import *
 
+
 class BaseListWidget(QWidget):
     def __init__(self, scroll_area: QScrollArea) -> None:
         super().__init__()
@@ -15,7 +16,9 @@ class BaseListWidget(QWidget):
         self.container = QWidget(self)          # ✅ keep reference + parent
         self.main_layout = QVBoxLayout(self.container)
         self.container.setLayout(self.main_layout)
-
+        
+        self.main_layout.addStretch()
+        
         self._layout = QVBoxLayout(self)
         self._layout.addWidget(self.container)  # ✅ add to visible hierarchy
         self.setLayout(self._layout)
@@ -23,9 +26,9 @@ class BaseListWidget(QWidget):
     # Category name is here to avoid edge cases
     def addWidget(self, widget: "BaseAttendanceEntryWidget", category_name: str | None = None, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
         if alignment is not None:
-            self.main_layout.addWidget(widget, stretch, alignment)
+            self.main_layout.insertWidget(len(self.widgets), widget, stretch, alignment)
         else:
-            self.main_layout.addWidget(widget, stretch)
+            self.main_layout.insertWidget(len(self.widgets), widget, stretch)
         
         widget.show()
         widget.adjustSize()
@@ -50,6 +53,8 @@ class BaseScrollListWidget(QWidget):
         self.scroll_widget.setWidget(widget)
         self.main_layout = QVBoxLayout(widget)
         
+        self.main_layout.addStretch()
+        
         self._layout = QVBoxLayout(self)
         self.setLayout(self._layout)
         
@@ -57,9 +62,9 @@ class BaseScrollListWidget(QWidget):
     
     def addWidget(self, widget: "BaseAttendanceEntryWidget", stretch: int = 0, alignment: Qt.AlignmentFlag = None):
         if alignment is not None:
-            self.main_layout.addWidget(widget, stretch, alignment)
+            self.main_layout.insertWidget(len(self.widgets), widget, stretch, alignment)
         else:
-            self.main_layout.addWidget(widget, stretch)
+            self.main_layout.insertWidget(len(self.widgets), widget, stretch)
         
         self.widgets.append(widget)
     
@@ -71,6 +76,7 @@ class BaseFilterCategoriesWidget(BaseListWidget):
         super().__init__(scroll_area)
         
         self.category_widgets = {}
+        self.category_widgets_tracker = []
     
     def addWidget(self, widget: "BaseAttendanceEntryWidget", category_name: str | tuple[str, ...] | int, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
         if isinstance(category_name, (str, int)):
@@ -81,19 +87,21 @@ class BaseFilterCategoriesWidget(BaseListWidget):
                 cat_layout = QVBoxLayout()
                 cat_widg.setLayout(cat_layout)
                 
-                self.category_widgets[category_name] = [DropdownLabeledField(category_name, cat_widg, True), []]
+                self.category_widgets[category_name] = DropdownLabeledField(category_name, cat_widg, True)
                 
                 super().addWidget(self.category_widgets[category_name])
             
             if alignment is not None:
-                self.category_widgets[category_name][0].addWidget(widget, stretch, alignment)
+                self.category_widgets[category_name].addWidget(widget, stretch, alignment)
             else:
-                self.category_widgets[category_name][0].addWidget(widget, stretch)
+                self.category_widgets[category_name].addWidget(widget, stretch)
             
-            self.category_widgets[category_name][1].append(widget)
+            self.category_widgets_tracker.append([self.category_widgets[category_name], widget])
         else:
             parent = super()
             widgs = self.category_widgets
+            
+            self.category_widgets_tracker.append([])
             
             for i, name in enumerate(category_name):
                 name = str(name)
@@ -103,28 +111,27 @@ class BaseFilterCategoriesWidget(BaseListWidget):
                     cat_layout = QVBoxLayout()
                     cat_widg.setLayout(cat_layout)
                     
-                    widgs[name] = [DropdownLabeledField(name, cat_widg, True), {}, None]
+                    widgs[name] = [DropdownLabeledField(name, cat_widg, True), {}]
                     
                     parent.addWidget(widgs[name][0])
                 
                 if i != len(category_name) - 1:
                     parent = widgs[name][0]
                     widgs = widgs[name][1]
+                    
+                    self.category_widgets_tracker[-1].append(parent)
                 else:
                     if alignment is not None:
                         widgs[name][0].addWidget(widget, stretch, alignment)
                     else:
                         widgs[name][0].addWidget(widget, stretch)
                     
-                    if widgs[name][2] is None:
-                        widgs[name][2] = []
-                    
-                    widgs[name][2].append(widget)
+                    self.category_widgets_tracker[-1].append(widget)
     
     def get_widgets(self):
-        return self.category_widgets
-    
-    
+        return self.category_widgets_tracker
+
+
 
 
 class BaseStaffListEntryWidget(QWidget):
