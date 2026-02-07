@@ -1,5 +1,8 @@
 
-from widgets.section_widgets import *
+from widgets.comm_widgets import *
+from widgets.staff.option_widgets import *
+from widgets.staff.list_widgets import *
+
 from theme import THEME_MANAGER
 
 class Window(QMainWindow):
@@ -35,7 +38,7 @@ class Window(QMainWindow):
                 self.flag_mapping["--arg--"](i, arg)
         
         self.target_connector = BaseCommSystem(CommDevice(self.comm_signal, self.connection_changed, "", None, None), self.connection_error_func)
-        self.connection_set_up_screen = SetupScreen(self, self.target_connector)
+        self.connection_set_up_screen = CommSetupDialog(self, self.target_connector)
         self.file_manager = FileManager(self, self.file_path, "CDSSE Attendance Files (*.cdat)")
         self.file_manager.set_callbacks(self.save_callback, self.open_callback, self.load_callback)
         

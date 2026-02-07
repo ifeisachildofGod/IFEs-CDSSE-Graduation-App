@@ -26,7 +26,7 @@ stylesheet = '''
     color: {primary};
   }}
   
-  QPushButton {{
+  QPushButton, .QPushButton {{
     background-color: {primary};
     color: {primary_text};
     border: none;
@@ -34,15 +34,15 @@ stylesheet = '''
     padding: 6px 12px;
   }}
   
-  QPushButton:hover {{
+  QPushButton:hover, .QPushButton:hover {{
     background-color: {primary_hover};
   }}
 
-  QPushButton:pressed {{
+  QPushButton:pressed, .QPushButton:pressed {{
     background-color: {primary_pressed};
   }}
   
-  QPushButton:disabled {{
+  QPushButton:disabled, .QPushButton:disabled {{
     background-color: {disabled};
   }}
   
@@ -157,14 +157,14 @@ stylesheet = '''
     background-color: {highlight};
   }}
   
-  .option-menu QPushButton {{
+  .option-menu QPushButton, .option-menu .QPushButton {{
     border-radius: 0px;
     margin: 0px;
     border: none;
     background-color: {input_bg};
   }}
   
-  .option-menu QPushButton:hover {{
+  .option-menu QPushButton:hover, .option-menu .QPushButton:hover {{
     color: {primary_text};
     background-color: {primary};
   }}
@@ -365,10 +365,13 @@ stylesheet = '''
 class ThemeManager:
     def __init__(self):
         self.themes: dict[str, dict[str, dict[str, str] | str]] = {}
+        
+        self.current_pallete = None
         self.current_theme = None
-        self.name = None
+        
+        self._name = None
 
-    def add_theme(self, name: str, theme_dict: dict):
+    def _add_theme(self, name: str, theme_dict: dict):
         """Add a theme directly from a dict"""
         self.themes[name] = theme_dict
 
@@ -379,7 +382,7 @@ class ThemeManager:
         with open(file_path, 'r') as f:
             theme = json.load(f)
             
-            self.name = theme["$$theme$$"]
+            self._name = theme["$$theme$$"]
             general = theme["general"]
             
             for name1, theme_palette in theme["theme"].items():
@@ -388,22 +391,22 @@ class ThemeManager:
                     palette.update(color_palette)
                     palette.update(general)
                     
-                    self.add_theme(f"{name1}-{name2}", {"palette": palette, "stylesheet": stylesheet})
+                    self._add_theme(f"{name1}-{name2}", {"palette": palette, "stylesheet": stylesheet})
 
     def apply_theme(self, app: QApplication):
         """Apply a stylesheet-only theme using values from JSON"""
-        if self.name not in self.themes:
-            raise ValueError(f"Theme '{self.name}' not loaded.")
+        if self._name not in self.themes:
+            raise ValueError(f"Theme '{self._name}' not loaded.")
         
-        theme = self.themes[self.name]
-        self.current_theme = self.name
+        theme = self.themes[self._name]
+        self.current_theme = self._name
 
-        palette_vars = theme.get("palette")
+        self.current_pallete = theme.get("palette")
         stylesheet_template = theme.get("stylesheet")
 
         # Inject palette variables into stylesheet using string formatting
         try:
-            applied_stylesheet = stylesheet_template.format(**palette_vars)
+            applied_stylesheet = stylesheet_template.format(**self.current_pallete)
         except KeyError as e:
             raise KeyError(f"Missing color value for: {e} on line {stylesheet_template[:stylesheet_template.find(str(e))].count("\n") + 1}")
         
@@ -415,14 +418,12 @@ class ThemeManager:
         
         return theme
     
-    def get_current_palette(self):
-      theme = self.get_current_theme()
-      
-      if theme is not None:
-        return theme["palette"]
-
     def get_theme_names(self):
         return list(self.themes.keys())
+    
+    def pallete_get(self, name: str):
+        return self.current_pallete[name]
+      
 
 THEME_MANAGER = ThemeManager()
 THEME_MANAGER.load_theme_from_file("src/themes.json")

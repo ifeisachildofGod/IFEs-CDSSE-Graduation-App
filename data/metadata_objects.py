@@ -9,7 +9,7 @@ class CharacterName:
     other: str | None = None
     
     def full_name(self):
-        return f"{self.sur} {self.first}, {self.middle}"
+        return f"{self.sur} {self.first} {self.middle}"
 
 @dataclass
 class Department:

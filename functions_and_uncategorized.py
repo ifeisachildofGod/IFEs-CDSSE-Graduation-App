@@ -1,12 +1,10 @@
 from imports import *
-from data.time_data_objects import *
 
 def is_check_in(t: Time, cin: Time, cout: Time):
     cit_diff = t.in_seconds() - cin.in_seconds()
     cot_diff = cout.in_seconds() - t.in_seconds()
     
     return cit_diff <= cot_diff
-
 
 def process_from_data(data, data_class_mapping: dict[str, type] | None = None, class_mapping: dict[str, type] | None = None):
     class_mapping = class_mapping if class_mapping is not None else {}
@@ -26,6 +24,7 @@ def process_from_data(data, data_class_mapping: dict[str, type] | None = None, c
         return_value = data
     
     return return_value
+
 
 def create_widget(parent_layout: QLayout | None, layout_type: type[QHBoxLayout] | type[QVBoxLayout] | type[QGridLayout]):
     widget = QWidget()
@@ -49,6 +48,21 @@ def create_scrollable_widget(parent_layout: QLayout | None, layout_type: type[QH
         parent_layout.addWidget(scroll_widget)
     
     return scroll_widget, layout
+
+def clear_layout(layout: QLayout):
+    while layout.count():
+        item = layout.takeAt(0)
+
+        widget = item.widget()
+        layout_item = item.layout()
+
+        if widget is not None:
+            widget.setParent(None)
+            widget.deleteLater()
+
+        elif layout_item is not None:
+            clear_layout(layout_item)
+
 
 class Thread(QThread):
     crashed = pySignal(Exception)

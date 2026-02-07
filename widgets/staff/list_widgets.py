@@ -1,107 +1,10 @@
 from itertools import product
-import random
-from PyQt6.QtWidgets import QComboBox
+
 from theme import THEME_MANAGER
-from widgets.section_sub_widgets import *
-from data.time_data_objects import *
 
-
-class BaseListWidget(QWidget):
-    def __init__(self, scroll_area: QScrollArea) -> None:
-        super().__init__()
-        
-        self.scroll_area = scroll_area
-        
-        self.container = QWidget(self)          # ✅ keep reference + parent
-        self.main_layout = QVBoxLayout(self.container)
-        self.container.setLayout(self.main_layout)
-
-        self._layout = QVBoxLayout(self)
-        self._layout.addWidget(self.container)  # ✅ add to visible hierarchy
-        self.setLayout(self._layout)
-    
-    # Category name is here to avoid edge cases
-    def addWidget(self, widget: QWidget, category_name: str | None = None, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
-        if alignment is not None:
-            self.main_layout.addWidget(widget, stretch, alignment)
-        else:
-            self.main_layout.addWidget(widget, stretch)
-        
-        widget.show()
-        widget.adjustSize()
-        
-        self.scroll_area.ensureWidgetVisible(widget, xMargin=0, yMargin=10)
-
-class BaseScrollListWidget(QWidget):
-    def __init__(self) -> None:
-        super().__init__()
-        
-        self.scroll_widget = QScrollArea()
-        self.scroll_widget.setWidgetResizable(True)
-        
-        widget = QWidget()
-        self.scroll_widget.setWidget(widget)
-        self.main_layout = QVBoxLayout(widget)
-        
-        self._layout = QVBoxLayout(self)
-        self.setLayout(self._layout)
-        
-        self._layout.addWidget(self.scroll_widget)
-    
-    def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
-        if alignment is not None:
-            self.main_layout.addWidget(widget, stretch, alignment)
-        else:
-            self.main_layout.addWidget(widget, stretch)
-
-class _FilterCategoriesWidget(BaseListWidget):
-    def __init__(self, scroll_area: QScrollArea):
-        super().__init__(scroll_area)
-        
-        self.category_widgets = {}
-    
-    def addWidget(self, widget: "AttendanceWidget", category_name: str | tuple[str, ...] | int, stretch: int = 0, alignment: Qt.AlignmentFlag = None):
-        if isinstance(category_name, (str, int)):
-            category_name = str(category_name)
-            
-            if category_name not in self.category_widgets:
-                cat_widg = QWidget()
-                cat_layout = QVBoxLayout()
-                cat_widg.setLayout(cat_layout)
-                
-                self.category_widgets[category_name] = DropdownLabeledField(category_name, cat_widg, True)
-                
-                super().addWidget(self.category_widgets[category_name])
-            
-            if alignment is not None:
-                self.category_widgets[category_name].addWidget(widget, stretch, alignment)
-            else:
-                self.category_widgets[category_name].addWidget(widget, stretch)
-        else:
-            parent = super()
-            widgs = self.category_widgets
-            
-            for i, name in enumerate(category_name):
-                name = str(name)
-                
-                if name not in widgs:
-                    cat_widg = QWidget()
-                    cat_layout = QVBoxLayout()
-                    cat_widg.setLayout(cat_layout)
-                    
-                    widgs[name] = [DropdownLabeledField(name, cat_widg, True), {}]
-                    
-                    parent.addWidget(widgs[name][0])
-                
-                if i != len(category_name) - 1:
-                    parent = widgs[name][0]
-                    widgs = widgs[name][1]
-                else:
-                    if alignment is not None:
-                        widgs[name][0].addWidget(widget, stretch, alignment)
-                    else:
-                        widgs[name][0].addWidget(widget, stretch)
-
+from widgets.base_widgets import *
+from widgets.staff.entry_widgets import *
+from widgets.data_display_widgets import *
 
 
 class AttendanceWidget(BaseScrollListWidget):
@@ -153,7 +56,17 @@ class AttendanceWidget(BaseScrollListWidget):
         self.comm_signal.connect(self.add_new_attendance_log)
         self.comm_system.set_data_point("IUD", self.comm_signal)
         
-        filter_widget, filter_layout = create_widget(None, QHBoxLayout)
+        self.filter_widget, filter_layout = create_widget(None, QHBoxLayout)
+        
+        self.search_edit = SearchEdit(self._get_search_scope, self._goto_search)
+        
+        self.find_pb = QPushButton("Search Staff")
+        self.find_pb.setFixedWidth(500)
+        self.find_pb.setStyleSheet(f"background-color: {THEME_MANAGER.pallete_get("bg2")}; border: 1px solid {THEME_MANAGER.pallete_get("border")};")
+        self.find_pb.clicked.connect(self._open_search_edit)
+        
+        filter_layout.addWidget(self.find_pb, alignment=Qt.AlignmentFlag.AlignLeft)
+        filter_layout.addStretch()
         
         self.filter_comboboxes = []
         
@@ -172,10 +85,41 @@ class AttendanceWidget(BaseScrollListWidget):
         for attendance in self.data.attendance_data:
             self._add_attendance_log(attendance)
         
-        self._layout.insertWidget(0, filter_widget, alignment=Qt.AlignmentFlag.AlignRight)
+        self._layout.insertWidget(0, self.filter_widget)
+    
+    def _goto_search(self, sw: AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget | tuple[DropdownLabeledField, AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget]):
+        if isinstance(sw, tuple):
+            pass
+        else:
+            self.scroll_widget.verticalScrollBar().setValue(sw.y())
+    
+    def _get_search_scope(self):
+        parent_widget: BaseListWidget | BaseFilterCategoriesWidget = self.stack.currentWidget()
+        
+        if isinstance(parent_widget, BaseListWidget):
+            widgets: list[AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget] = parent_widget.get_widgets()
+            
+            return (
+                sorted(
+                    [
+                        (sw, sw.staff.name.full_name(), (sw.data.period.to_str(), f"{f"{sw.staff.IUD} ° " if sw.staff.IUD else ""}{sw.staff.name.abrev}", "Prefect" if sw.staff.id in self.data.prefects else "Teacher"))
+                        for sw in
+                        widgets
+                        ],
+                    key=lambda params: params[1]
+                    )
+                )
+        else:
+            return []  # Sort out later
+    
+    def _open_search_edit(self):
+        self.search_edit.move(self.filter_widget.mapToGlobal(QPoint(self.find_pb.x(), self.find_pb.y())))
+        self.search_edit.search_le.setFocus()
+        
+        self.search_edit.show()
     
     def _determine_filter_widget_type(self, comb: tuple[int, ...]):
-        return BaseListWidget(self.scroll_widget) if comb[1] in (0, 1) and comb[2] in (0, ) else _FilterCategoriesWidget(self.scroll_widget)
+        return BaseListWidget(self.scroll_widget) if comb[1] in (0, 1) and comb[2] in (0, ) else BaseFilterCategoriesWidget(self.scroll_widget)
     
     def _add_attendance_entry(self, comb: tuple[int, ...], t_widget_entry: AttendanceEntry):
         if isinstance(t_widget_entry.staff, Teacher):
@@ -557,38 +501,51 @@ class AttendanceWidget(BaseScrollListWidget):
         
         return super().keyPressEvent(a0)
 
-
-
 class StaffListWidget(BaseScrollListWidget):
     def __init__(self, parent_widget: TabViewWidget, data: AppData, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
         super().__init__()
-        prefects = sorted([(k, v) for k, v in data.prefects.items()], key=lambda params: params[1].name.full_name())
-        teachers = sorted([(k, v) for k, v in data.teachers.items()], key=lambda params: params[1].name.full_name())
-        boths = sorted([(k, v) for k, v in data.prefects.items()] + [(k, v) for k, v in data.teachers.items()], key=lambda params: params[1].name.full_name())
+        
+        self.data = data
+        
+        prefects = sorted([(k, v) for k, v in self.data.prefects.items()], key=lambda params: params[1].name.full_name())
+        teachers = sorted([(k, v) for k, v in self.data.teachers.items()], key=lambda params: params[1].name.full_name())
+        boths = sorted(prefects + teachers, key=lambda params: params[1].name.full_name())
+        
+        self._staffs_viewed: dict[str, StaffListPrefectEntryWidget | StaffListTeacherEntryWidget] = {}
         
         prefects_widget = QWidget()
         prefects_layout = QVBoxLayout()
         prefects_widget.setLayout(prefects_layout)
         
         for _, prefect in prefects:
-            prefects_layout.addWidget(StaffListPrefectEntryWidget(parent_widget, data, prefect, comm_system, card_scanner_index, staff_data_index))
+            widget = StaffListPrefectEntryWidget(parent_widget, self.data, prefect, comm_system, card_scanner_index, staff_data_index)
+            
+            prefects_layout.addWidget(widget)
+            self._staffs_viewed[widget.staff.id] = widget
         
         teachers_widget = QWidget()
         teachers_layout = QVBoxLayout()
         teachers_widget.setLayout(teachers_layout)
         
         for _, teacher in teachers:
-            teachers_layout.addWidget(StaffListTeacherEntryWidget(parent_widget, data, teacher, comm_system, card_scanner_index, staff_data_index))
+            widget = StaffListTeacherEntryWidget(parent_widget, self.data, teacher, comm_system, card_scanner_index, staff_data_index)
+            
+            teachers_layout.addWidget(widget)
+            self._staffs_viewed[widget.staff.id] = widget
         
         boths_widget = QWidget()
         boths_layout = QVBoxLayout()
         boths_widget.setLayout(boths_layout)
         
         for _, both in boths:
-            if isinstance(both, Teacher):
-                boths_layout.addWidget(StaffListTeacherEntryWidget(parent_widget, data, both, comm_system, card_scanner_index, staff_data_index))
-            else:
-                boths_layout.addWidget(StaffListPrefectEntryWidget(parent_widget, data, both, comm_system, card_scanner_index, staff_data_index))
+            widget = (
+                StaffListTeacherEntryWidget(parent_widget, self.data, both, comm_system, card_scanner_index, staff_data_index)
+                if isinstance(both, Teacher) else
+                StaffListPrefectEntryWidget(parent_widget, self.data, both, comm_system, card_scanner_index, staff_data_index)
+            )
+            
+            boths_layout.addWidget(widget)
+            self._staffs_viewed[widget.staff.id] = widget
         
         self.widgets = {
             "All": boths_widget,
@@ -600,11 +557,46 @@ class StaffListWidget(BaseScrollListWidget):
             staff_widget.setVisible(i == 0)
             self.main_layout.addWidget(staff_widget)
         
-        filters = QComboBox()
-        filters.addItems(list(self.widgets))
-        filters.currentIndexChanged.connect(self.filter)
+        self.filter_widget, filter_layout = create_widget(None, QHBoxLayout)
         
-        self._layout.insertWidget(0, filters, alignment=Qt.AlignmentFlag.AlignRight)
+        self.filter_cb = QComboBox()
+        self.filter_cb.addItems(list(self.widgets))
+        self.filter_cb.currentIndexChanged.connect(self.filter)
+        
+        self.search_edit = SearchEdit(self._get_search_scope, lambda sw: self.scroll_widget.verticalScrollBar().setValue(sw.y()))
+        
+        self.find_pb = QPushButton("Search Staff")
+        self.find_pb.setFixedWidth(500)
+        self.find_pb.setStyleSheet(f"background-color: {THEME_MANAGER.pallete_get("bg2")}; border: 1px solid {THEME_MANAGER.pallete_get("border")};")
+        self.find_pb.clicked.connect(self._open_search_edit)
+        
+        filter_layout.addWidget(self.find_pb, alignment=Qt.AlignmentFlag.AlignLeft)
+        filter_layout.addWidget(self.filter_cb, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        self._layout.insertWidget(0, self.filter_widget)
+    
+    def _get_search_scope(self):
+        return (
+            sorted(
+                [
+                    (sw, sw.staff.name.full_name(), (sw.staff.name.abrev, sw.staff.IUD, "Prefect" if sw.staff.id in self.data.prefects else "Teacher"))
+                    for sw in
+                    self._staffs_viewed.values()
+                    if (
+                        self.filter_cb.currentIndex() == 0 or
+                        (sw.staff.id in self.data.prefects and self.filter_cb.currentIndex() == 1) or
+                        (sw.staff.id in self.data.teachers and self.filter_cb.currentIndex() == 2)
+                        )
+                    ],
+                key=lambda params: params[1]
+                )
+            )
+    
+    def _open_search_edit(self):
+        self.search_edit.move(self.filter_widget.mapToGlobal(QPoint(self.find_pb.x(), self.find_pb.y())))
+        self.search_edit.search_le.setFocus()
+        
+        self.search_edit.show()
     
     def filter(self, index: int):
         for i, staff_widget in enumerate(self.widgets.values()):

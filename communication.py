@@ -1,6 +1,6 @@
 
 from imports import *
-from others import Thread
+from functions_and_uncategorized import Thread
 
 "Name:Variable-Type(Data)|...|..."
 

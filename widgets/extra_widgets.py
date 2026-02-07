@@ -1,474 +1,519 @@
 
-from widgets.base_widgets import *
+from imports import *
+from theme import THEME_MANAGER
+from functions_and_uncategorized import *
 
-class BaseExtraWidget(QWidget):
-    def __init__(self, parent_widget: TabViewWidget, widget_type: Literal["scrollable", "static"]):
-        super().__init__()
+class SearchEdit[T](QFrame):
+    def __init__(self, get_search_scope_callback: Callable[[], list[tuple[T, str, tuple[Optional[str], Optional[str], Optional[str]]]]], goto_search_callback: Optional[Callable[[T], None]] = None, unallowed_characters: Optional[list[str]] = None):
+        super().__init__(None)
         
-        layout = QVBoxLayout(self)
+        self.get_search_scope_callback = get_search_scope_callback
+        self.goto_search_callback = goto_search_callback
+        self.unallowed_characters = unallowed_characters or []
         
-        self.container, self.main_layout = create_scrollable_widget(layout, QVBoxLayout) if widget_type == "scrollable" else (create_widget(layout, QVBoxLayout) if widget_type == "static" else None)
+        self.setProperty("class", "option-menu")
         
-        self.parent_widget = parent_widget
+        self.setWindowFlags(Qt.WindowType.Popup)
+        self.setFrameShape(QFrame.Shape.Box)
         
-        _, upper_layout = create_widget(self.main_layout, QHBoxLayout)
+        self.setFixedWidth(500)
         
-        cancel_button = QPushButton("×")
-        cancel_button.setFixedSize(30, 30)
-        cancel_button.setStyleSheet("font-size: 25px; border-radius: 15px; padding: 0px")
-        cancel_button.clicked.connect(self.finished)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(2, 2, 2, 2)
         
-        upper_layout.addStretch()
-        upper_layout.addWidget(cancel_button, Qt.AlignmentFlag.AlignRight)
+        self.search_le = QLineEdit()
+        self.search_le.setPlaceholderText("Search")
+        self.search_le.setFixedWidth(500 - 4)
+        self.search_le.textChanged.connect(self._make_find_dp)
+        self.search_le.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         
-        self.staff: Staff | None = None
-        self.staff_index: int | None = None
+        self.search_options_widget, self.search_options_layout = create_scrollable_widget(None, QVBoxLayout)
+        self.search_options_widget.setProperty("class", "option-menu")
+        self.search_options_widget.setFixedWidth(500 - 4)
+        self.search_options_widget.setMaximumHeight(200)
+        
+        self.main_layout.addWidget(self.search_le, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(self.search_options_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
     
-    def set_self(self, staff: Staff):
-        self.staff = staff
-    
-    def finished(self):
-        self.parent_widget.set_tab("Staff")
-        
-        self.staff = None
-        self.staff_index = None
-
-
-class StaffDataWidget(BaseExtraWidget):
-    def __init__(self, data: AppData, parent_widget: TabViewWidget):
-        super().__init__(parent_widget, "scrollable")
-        
-        self.data = data
-        
-        self.staff_working_days = {}
-        
-        for prefect in self.data.prefects.values():
-            self.staff_working_days[prefect.id] = list(prefect.duties)
-        
-        for teacher in self.data.teachers.values():
-            self.staff_working_days[teacher.id] = list(set(flatten([[d for d, _ in s.periods] for s in teacher.subjects])))
-        
-        self.attendance_amt_widget = QLabel()
-        
-        self.punctuality_widget: GraphWidget | None = None
-        
-        self.attendance_widget = BarWidget("", "Time (Weeks)", "Attendance (%)")
-        self.attendance_widget.bar_canvas.axes.set_ylim(0, 110)
-        
-        self.punctuality_widget = GraphWidget("", "Scan Interval", "Punctuality (Minutes)")
-        
-        stats_widget, stats_layout = create_widget(None, QVBoxLayout)
-        chart_widget, chart_layout = create_widget(None, QVBoxLayout)
-        
-        stats_layout.addWidget(self.attendance_amt_widget)
-        
-        chart_layout.addWidget(self.attendance_widget)
-        chart_layout.addWidget(self.punctuality_widget)
-        
-        self.main_layout.addWidget(LabeledField("Stats", stats_widget))
-        self.main_layout.addWidget(LabeledField("Graphs and Charts", chart_widget))
-    
-    def set_self(self, staff):
-        super().set_self(staff)
-        
-        if isinstance(staff, Teacher):
-            bar_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Attendance Chart"
-            graph_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Punctuality Graph"
-            staff_list = list(self.data.teachers)
-            cit = self.data.teacher_cit
-        elif isinstance(staff, Prefect):
-            bar_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Cummulative Attendance Chart"
-            graph_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Average Punctuality Graph"
-            staff_list = list(self.data.prefects)
-            cit = self.data.prefect_cit
-        else:
-            raise Exception()
-        
-        self.attendance_widget.clear()
-        self.punctuality_widget.clear()
-        
-        self.attendance_widget.set_title(bar_title)
-        self.punctuality_widget.set_title(graph_title)
-        
-        color = list(get_named_colors_mapping().values())[staff_list.index(staff.id) % len(list(get_named_colors_mapping().values()))]
-        
-        weeks_data = {}
-        
-        for attendance in staff.attendance:
-            if attendance.is_check_in and attendance.period.day in self.staff_working_days[attendance.staff.id]:
-                curr_index = DAYS_OF_THE_WEEK.index(attendance.period.day)
+    def _make_find_dp(self, text: str):
+        if next((False for c in self.unallowed_characters if c in text), True):
+            score_data = sorted(
+                [
+                    (data_point, (search_name, right_text, bottom_text, end_text), self._get_find_score(text, search_name, (right_text, bottom_text, end_text)))
+                    for data_point, search_name, (right_text, bottom_text, end_text) in
+                    self.get_search_scope_callback()
+                ],
+                key=lambda params: params[2][0],
+                reverse=True
+            )
+            
+            options = {
+                self._stylize_text_indices(text, f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;", right_text, bottom_text, end_text, indices): self._make_find_func(data_point)
+                for data_point, (text, right_text, bottom_text, end_text), (score, indices) in
+                score_data[:10]
+                if score != -1
+                }
+            
+            if options:
+                clear_layout(self.search_options_layout)
                 
-                days = self.staff_working_days[staff.id]
+                self.search_options_layout.addStretch()
                 
-                if attendance.period.date - curr_index < 1:
-                    start_date = 1
-                    days = [day for day in days if not (DAYS_OF_THE_WEEK.index(day) < abs(attendance.period.date - curr_index) + 1)]
-                else:
-                    start_date = attendance.period.date - curr_index
-                
-                if attendance.period.date - curr_index + 6 > MONTHS_OF_THE_YEAR[attendance.period.month]:
-                    end_date = MONTHS_OF_THE_YEAR[attendance.period.month]
-                    days = [day for day in days if not (DAYS_OF_THE_WEEK.index(day) > MONTHS_OF_THE_YEAR[attendance.period.month] - (attendance.period.date - curr_index))]
-                else:
-                    end_date = attendance.period.date - curr_index + 6
-                
-                name_key = f"{attendance.period.month} {attendance.period.year}\n{positionify(start_date)} to {positionify(end_date)}"
-                
-                if days:
-                    if name_key not in weeks_data:
-                        weeks_data[name_key] = [0, len(days)]
+                for option_index, (option_name, option_func) in enumerate(options.items()):
+                    btn = QLabel(option_name)
+                    btn.setProperty("class", "QPushButton")
+                    btn.mousePressEvent = self._make_option_clicked_func(option_func)
                     
-                    weeks_data[name_key][0] += 1
-        
-        weeks_data = {key: amt_attended / total * 100 for key, (amt_attended, total) in weeks_data.items()}
-        self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, weeks_data)
-        
-        y_plot_points = [cit.in_minutes() - attendance.period.time.in_minutes() for attendance in staff.attendance if attendance.is_check_in and attendance.period.day in self.staff_working_days[staff.id]]
-        
-        self.punctuality_widget.plot(None, y_plot_points, marker='o', color=color)
-        
-        self.attendance_amt_widget.setText(f"<span style='font-weight: 500; color: #eeeeee;'>Attendance</span><b>:</b><span style='font-weight: 900; color: #ffffff;'> {str(int(sum(list(weeks_data.values())) / len(weeks_data))) + "%" if weeks_data else "No Data"}</span>")
-        
-
-class CardScanScreenWidget(BaseExtraWidget):
-    comm_signal = pySignal(str)
-    
-    def __init__(self, comm_system: BaseCommSystem, parent_widget: TabViewWidget, saved_state_changed: pyBoundSignal):
-        super().__init__(parent_widget, "static")
-        self.comm_system = comm_system
-        self.saved_state_changed = saved_state_changed
-        
-        self.setStyleSheet("""
-            QLabel {
-                font-size: 30px;
-                font-weight: bold;
-            }
-        """)
-        
-        scan_img = Image("src/images/scan.png", height=330)
-        scan_img.setStyleSheet("margin-bottom: 20px;")
-        self.main_layout.addWidget(scan_img, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        info = QLabel("Please scan RFID card")
-        info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addWidget(info, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        self.info_label = QLabel()
-        self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addWidget(self.info_label, Qt.AlignmentFlag.AlignCenter)
-        
-        self.comm_signal.connect(self.scanned)
-        self.comm_system.set_data_point("IUD", self.comm_signal)
-        
-        self.iud_label = None
-        
-        self.comm_system.connection_changed_signal.connect(self.connection_changed)
-        self.iud_changed = False
-    
-    def set_self(self, staff: Staff, iud_label: QLabel):
-        super().set_self(staff)
-        
-        self.iud_label = iud_label
-        
-        self.info_label.setText(f"To link an IUD to {self.staff.name.sur} {self.staff.name.first} (ID: {self.staff.id})")
-    
-    def finished(self):
-        self.iud_label = None
-        if self.iud_changed:
-            self.comm_system.send_message(f"LCD:{self.staff.name.abrev} IUD_-_set to {self.staff.IUD}")
-        return super().finished()
-    
-    def connection_changed(self, state: bool):
-        if not state and self.parent_widget.stack.indexOf(self) == self.parent_widget.stack.currentIndex():
-            self.finished()
-    
-    def scanned(self, data: str):
-        if self.parent_widget.stack.currentIndex() == self.parent_widget.stack.indexOf(self):
-            self.staff.IUD = data
-            self.iud_label.setText(self.staff.IUD)
-            
-            self.saved_state_changed.emit(False)
-            
-            self.iud_changed = True
-            self.finished()
-            self.iud_changed = False
-
-
-
-class SetupScreen(QDialog):
-    update_signal = pySignal(dict, list)
-    bluetooth_state_signal = pySignal(bool)
-    
-    def __init__(self, parent: QMainWindow, connector: BaseCommSystem):
-        super().__init__(parent=parent)
-        
-        self.connector = connector
-        
-        self.setFocus()
-        self.setModal(True)
-        self.setWindowTitle("Connection Config")
-        self.setFixedWidth(700)
-        self.setFixedHeight(500)
-        
-        self.connected = False
-        self.connect_clicked = False
-        self.connect_only_widgets = []
-        self.data: dict[str, str | int | Literal["bt", "ser"]] = {}
-        
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        
-        self.container, self.main_layout = create_widget(layout, QVBoxLayout)
-        
-        
-        serial_widget, serial_layout = create_widget(None, QVBoxLayout)
-        serial_widget.setProperty("class", "labeled-widget")
-        bluetooth_widget, bluetooth_layout = create_widget(None, QVBoxLayout)
-        bluetooth_widget.setProperty("class", "labeled-widget")
-        
-        self.main_widget = TabViewWidget()
-        self.main_widget.add("Serial Connection", serial_widget)
-        self.main_widget.add("BLE Connection", bluetooth_widget)
-        
-        _, serial_upper_buttons_layout = create_widget(serial_layout, QHBoxLayout)
-        
-        def bt_state_signal():
-            self.refresh("ser", self.serial_refresh_button)
-            self.bluetooth_state_signal.emit(True)
-        
-        self.serial_refresh_button = QPushButton("Refresh")
-        self.serial_refresh_button.clicked.connect(bt_state_signal)
-        
-        connect_button = QPushButton("Connect")
-        connect_button.clicked.connect(self.serial_connect_clicked(-1))
-        self.connect_only_widgets.append(connect_button)
-        
-        serial_upper_buttons_layout.addWidget(self.serial_refresh_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        serial_upper_buttons_layout.addWidget(connect_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        
-        self.port_options = []
-        
-        serial_ports_widget, serial_ports_layout = create_widget(None, QHBoxLayout)
-        serial_layout.addWidget(serial_ports_widget)
-        
-        self.port_selector_widget = QComboBox()
-        self.port_selector_widget.addItems(self.port_options)
-        
-        serial_ports_layout.addWidget(QLabel("Ports"))
-        serial_ports_layout.addWidget(self.port_selector_widget)
-        
-        baud_rate_options = ["300", "1200", "2400", "4800", "9600", "19200",
-                             "38400", "57600", "74880", "115200", "230400",
-                             "250000", "500000", "1000000", "2000000"]
-        
-        serial_baud_rate_widget, serial_baud_rate_layout = create_widget(None, QHBoxLayout)
-        serial_layout.addWidget(serial_baud_rate_widget, alignment=Qt.AlignmentFlag.AlignTop)
-        
-        self.baud_rate_selector_widget = QComboBox()
-        self.baud_rate_selector_widget.addItems(baud_rate_options)
-        self.baud_rate_selector_widget.setCurrentIndex(baud_rate_options.index("9600"))
-        
-        serial_baud_rate_layout.addWidget(QLabel("Baud rate"))
-        serial_baud_rate_layout.addWidget(self.baud_rate_selector_widget)
-        
-        self.bluetooth_refesh_button = QPushButton("Refresh")
-        self.bluetooth_refesh_button.clicked.connect(lambda: self.refresh("bt", self.bluetooth_refesh_button))
-        
-        bluetooth_layout.addWidget(self.bluetooth_refesh_button, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        
-        self.bluetooth_devices = []
-        
-        bluetooth_devices_widget, self.bluetooth_devices_layout = create_scrollable_widget(None, QVBoxLayout)
-        
-        bt_port_edit_widget, bt_port_edit_layout = create_widget(bluetooth_layout, QHBoxLayout)
-        
-        self.connect_only_widgets.append(bt_port_edit_widget)
-        
-        for index, (addr, name) in enumerate(self.bluetooth_devices):
-            self.add_bt_device(name, addr, index)
-        
-        self.bt_port_edit = QLineEdit()
-        self.bt_port_edit.setValidator(QIntValidator())
-        
-        bt_port_edit_layout.addWidget(QLabel("Port"))
-        bt_port_edit_layout.addWidget(self.bt_port_edit)
-        
-        bluetooth_layout.addWidget(LabeledField("Bluetooth Low Energy Devices", bluetooth_devices_widget, height_policy=QSizePolicy.Policy.Minimum))
-        bluetooth_layout.addWidget(bt_port_edit_widget, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
-        
-        self.main_layout.addWidget(self.main_widget)
-        
-        self.disconnect_button = QPushButton("Disconnect")
-        
-        self.main_layout.addWidget(self.disconnect_button, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
-        
-        def bt_state_signal_func(value):
-            bluetooth_widget.setDisabled(not value)
-            self.bluetooth_refesh_button.setDisabled(False)
-        
-        self.update_signal.connect(self._update_scan_timeout)
-        self.bluetooth_state_signal.connect(bt_state_signal_func)
-        
-        self.refresh_tracker = {}
-    
-    def comm_disconnect(self):
-        self.data = {}
-        self.connected = False
-        
-        for widget in self.connect_only_widgets:
-            widget.setDisabled(False)
-        
-        self.disconnect_button.setDisabled(True)
-    
-    def refresh(self, refresh_type: str, refresh_button: QPushButton):
-        if self.refresh_tracker.get(refresh_type, [True, None])[0]:
-            if not self.refresh_tracker.get(refresh_type, False):
-                self.refresh_tracker[refresh_type] = [False, None]
-            
-            self.refresh_tracker[refresh_type][0] = False
-            refresh_button.setDisabled(True)
-            
-            self.refresh_tracker[refresh_type][1] = Thread(lambda: self.update_scans(refresh_type, refresh_type, refresh_button))
-            self.refresh_tracker[refresh_type][1].crashed.connect(self.parent().connection_error_func)
-            self.refresh_tracker[refresh_type][1].start()
-    
-    def exec(self):
-        self.serial_refresh_button.click()
-        self.bluetooth_refesh_button.click()
-        
-        initial_exec_val = super().exec()
-        
-        if not self.connector.connected:
-            self.connector.device.port = self.data.get("port", "")
-            self.connector.device.addr = self.data.get("addr")
-            self.connector.device.baud_rate = self.data.get("baud_rate")
-            self.connector.device.pswd = self.data.get("key")
-            
-            if self.data.get("connection-type", None) is not None:
-                self.connector.set_bluetooth(self.data["connection-type"] == "bt")
-                self.connector.set_serial(self.data["connection-type"] == "ser")
+                    self.search_options_layout.insertWidget(option_index, btn, alignment=Qt.AlignmentFlag.AlignTop)
                 
-                self.connector.start_connection()
-        
-        return initial_exec_val
-    
-    def _update_scan_timeout(self, data: dict[str, list[tuple[str, str]] | list[str]], args: list):
-        if not args:
-            refresh_type = None
-            refresh_button = None
+                if not self.search_options_widget.isVisible():
+                    self.search_options_widget.setVisible(True)
+            elif self.search_options_widget.isVisible():
+                    self.search_options_widget.setVisible(False)
         else:
-            refresh_type, refresh_button = args
+            self.search_le.setText("".join([c for c in text if c not in self.unallowed_characters]))
         
-        if data.get("ser", None) is not None and self.port_options != data["ser"]:
-            self.port_options = data["ser"]
-            
-            for _ in range(self.port_selector_widget.count()):
-                self.port_selector_widget.removeItem(0)
-            
-            if self.port_selector_widget.currentText() in self.port_options:
-                self.port_options.insert(0, self.port_options.pop(self.port_options.index(self.port_selector_widget.currentText())))
-            
-            self.port_selector_widget.addItems(self.port_options)
-            if self.port_options:
-                self.port_selector_widget.setCurrentIndex(0)
-        
-        if data.get("bt", None) is not None and dict(self.bluetooth_devices) != dict(data["bt"]):
-            for _ in range(len(self.bluetooth_devices)):
-                prev_widget = self.bluetooth_devices_layout.itemAt(0).widget()
-                self.bluetooth_devices_layout.removeWidget(prev_widget)
-                prev_widget.deleteLater()
-                
-                for widget in self.connect_only_widgets[2:]:
-                    widget.deleteLater()
-                
-                self.connect_only_widgets[2:] = []
-            
-            self.bluetooth_devices = data["bt"]
-            
-            for index, (addr, name) in enumerate(self.bluetooth_devices):
-                self.add_bt_device(name, addr, index)
-        
-        if refresh_button is not None:
-            refresh_button.setDisabled(False)
-        if refresh_type is not None:
-            self.refresh_tracker[refresh_type][0] = True
-    
-    def update_scans(self, send_type: str | None = None, *args):
-        data = {}
-        
-        if send_type == "bt" or send_type is None:
-            bt_data = self.connector.find_devices("bt")
-            data["bt"] = bt_data
-        elif send_type == "ser" or send_type is None:
-            ser_data = self.connector.find_devices("ser")
-            data["ser"] = ser_data
-        
-        self.update_signal.emit(data, args)
-    
-    def add_bt_device(self, name: str, addr: str, index: int):
-        connect_button = QPushButton("Connect")
-        connect_button.clicked.connect(self.serial_connect_clicked(index))
-        self.connect_only_widgets.append(connect_button)
-        
-        _, bt_device_layout = create_widget(self.bluetooth_devices_layout, QHBoxLayout)
-            
-        _, info_layout = create_widget(bt_device_layout, QVBoxLayout)
-        
-        name_label = QLabel(name)
-        name_label.setStyleSheet("font-size: 30px; font-weight: 900;")
-        addr_label = QLabel(addr)
-        addr_label.setStyleSheet("font-size: 20px; font-weight: 100;")
-        
-        info_layout.addWidget(name_label)
-        info_layout.addWidget(addr_label)
-        
-        bt_device_layout.addWidget(connect_button, alignment=Qt.AlignmentFlag.AlignRight)
-    
-    def serial_connect_clicked(self, a0: int):
+    def _make_find_func(self, data_point: T):
         def func():
-            self.connect_clicked = True
-            self.connected = True
-            
-            self.data["key"] = "83ab579eee7f8a98c765"
-            
-            if a0 == -1:
-                self.data["connection-type"] = "ser"
-                self.data["port"] = self.port_selector_widget.currentText()
-                self.data["baud_rate"] = int(self.baud_rate_selector_widget.currentText())
-            elif isinstance(a0, int) and a0 >= 0:
-                self.data["connection-type"] = "bt"
-                self.data["addr"] = self.bluetooth_devices[a0][0]
-                try:
-                    self.data["port"] = int(self.bt_port_edit.text())
-                except ValueError:
-                    self.connector.error_func(ValueError(f'Invalid port value: "{self.bt_port_edit.text()}"'), False)
-                    return
-            
-            self.close()
+            if self.goto_search_callback:
+                self.goto_search_callback(data_point)
         
         return func
     
-    def closeEvent(self, a0):
-        if self.connect_clicked:
-            self.connect_clicked = False
+    def _get_find_score(self, text: str, potential_match: str, extra_text_data: Optional[tuple[Optional[str], Optional[str], Optional[str]]] = None):
+        l_text = text.lower()
+        l_target = potential_match.lower()
+        
+        space_amt = 0
+        additions = 0
+        
+        text_len = len(l_text)
+        target_len = len(l_target)
+        
+        index = 0
+        
+        score_indices = []
+        right_indices = []
+        bottom_indices = []
+        end_indices = []
+        
+        right_score = -1
+        bottom_score = -1
+        end_score = -1
+        
+        if extra_text_data:
+            right_text, bottom_text, end_text = extra_text_data
             
-            response = QMessageBox.question(self, "Connection mode", "Are you want to continue with these settings",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if right_text:
+                right_score, right_indices = self._get_find_score(text, right_text)
+                right_indices = right_indices[0]
+            if bottom_text:
+                bottom_score, bottom_indices = self._get_find_score(text, bottom_text)
+                bottom_indices = bottom_indices[0]
+            if end_text:
+                end_score, end_indices = self._get_find_score(text, end_text)
+                end_indices = end_indices[0]
+        
+        for i, c in enumerate(l_text):
+            f_index = l_target[index:].find(c)
             
-            if response == QMessageBox.StandardButton.Yes:
-                a0.accept()
+            if f_index != -1 and text_len <= target_len:
+                space_amt += f_index
+                index += f_index + 1
                 
-                for widget in self.connect_only_widgets:
-                    widget.setDisabled(True)
-                self.disconnect_button.setDisabled(False)
-            else:
-                self.comm_disconnect()
+                additions += text[i] == potential_match[index - 1]
+                additions += f_index == 0
                 
-                a0.ignore()
+                score_indices.append(index - 1)
                 
-                return
+                continue
+            break
+        else:
+            return (text_len / (target_len + space_amt)) + additions, (score_indices, [], [], [])
+        
+        if bottom_score == -1 and right_score != -1:
+            return right_score / 20, ([], right_indices, [], [])
+        elif right_score == -1 and bottom_score != -1:
+            return bottom_score / 20, ([], [], bottom_indices, [])
+        elif right_score != -1 and bottom_score != -1:
+            return (right_score + bottom_score) / 20, ([], right_indices, bottom_indices, [])
+        elif end_score != -1:
+            return end_score / 20, ([], [], [], end_indices)
+        
+        return -1, ([], [], [], [])
+    
+    def _stylize_text_indices(self, main_text: str, style: str, right_text: Optional[str], bottom_text: Optional[str], end_text: Optional[str], indices: tuple[list[int], list[int], list[int]]):
+        main_indices, right_indices, bottom_indices, end_indices = indices
+        
+        text = f"""
+        <table width="100%">
+        <tr>
+            <td align="left">
+            {"".join([f"<span style='font-size: 23px; {f"{style}" if i in main_indices else ""}'>{c}</span>" for i, c in enumerate(main_text)])}
+            <span>    </span>
+            {"".join([f"<span style='color: grey; font-size: 18px; font-weight: 300; {f"{style}" if i in right_indices else ""}'>{c}</span>" for i, c in enumerate(right_text)]) if right_text else ""}
+            <br>
+            {"".join([f"<span style='color: grey; font-size: 15px; font-weight: 500; {f"{style}" if i in bottom_indices else ""}'>{c}</span>" for i, c in enumerate(bottom_text)]) if bottom_text else ""}
+            </td>
+            <td align="right">
+            {"".join([f"<span style='color: lightgrey; font-size: 10px; font-weight: 300; {f"{style}" if i in end_indices else ""}'>{c}</span>" for i, c in enumerate(end_text)]) if end_text else ""}
+            </td>
+            <br>
+        </tr>
+        </table>
+        """
+        return text
+    
+    def _make_option_clicked_func(self, option_func: Callable[[], None]):
+        def func(_):
+            self.hide()
             
-        return super().closeEvent(a0)
+            self.search_le.setText("")
+            
+            option_func()
+        
+        return func
 
+    def show(self):
+        self._make_find_dp("")
+        
+        return super().show()
+
+class TabViewWidget(QWidget):
+    def __init__(self, bar_orientation: Literal["vertical", "horizontal"] = "horizontal"):
+        super().__init__()
+        self.bar_orientation = bar_orientation
+        
+        assert self.bar_orientation in ("vertical", "horizontal"), f"Invalid orientation: {self.bar_orientation}"
+        
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+        
+        tab_layout_type = QHBoxLayout if self.bar_orientation == "horizontal" else QVBoxLayout
+        main_layout_type = QHBoxLayout if self.bar_orientation == "vertical" else QVBoxLayout
+        
+        container = QWidget()
+        layout = main_layout_type()
+        container.setLayout(layout)
+        
+        self.current_tab = None
+        self.tab_src_changed_func_mapping = {}
+        
+        self.tab_buttons: list[QPushButton] = []
+        
+        tab_widget = QWidget()
+        tab_widget.setContentsMargins(0, 0, 0, 0)
+        
+        self.tab_layout = tab_layout_type()
+        tab_widget.setLayout(self.tab_layout)
+        
+        self.stack = QStackedWidget()
+        
+        if self.bar_orientation == "vertical":
+            self.tab_layout.addStretch()
+        
+        self.setContentsMargins(0, 0, 0, 0)
+        tab_widget.setContentsMargins(0, 0, 0, 0)
+        self.stack.setContentsMargins(0, 0, 0, 0)
+        
+        layout.addWidget(tab_widget)
+        layout.addWidget(self.stack)
+        
+        main_layout.addWidget(container)
+    
+    def add(self, tab_name: str, widget: QWidget, func: Callable[[int, ], None] = None):
+        tab_button = QPushButton(tab_name)
+        
+        self.tab_buttons.append(tab_button)
+        
+        tab_button.setCheckable(True)
+        tab_button.clicked.connect(self._make_tab_clicked_func(len(self.tab_buttons) - 1, func))
+        tab_button.setProperty("class", "HorizontalTab" if self.bar_orientation == "horizontal" else "VerticalTab")
+        tab_button.setContentsMargins(0, 0, 0, 0)
+        
+        self.tab_layout.insertWidget(len(self.tab_buttons) - 1, tab_button)
+        self.stack.insertWidget(len(self.tab_buttons), widget)
+        widget.setContentsMargins(0, 0, 0, 0)
+        
+        self.tab_buttons[0].click()
+    
+    def get(self, tab_name: str, default: Any = ...):
+        tab_widget = (self.stack.children() + [default])[next((i for i, b in enumerate(self.tab_buttons) if b.text() == tab_name), len(self.stack.children()))]
+        
+        if type(tab_widget) == type(Ellipsis):
+            raise KeyError(f'There is no tab named: "{tab_name}"')
+        return tab_widget
+    
+    def index(self, widget: QWidget):
+        return next(i for i, w in enumerate(self.stack.children()) if w == widget)
+    
+    def set_tab(self, tab: int | str):
+        if isinstance(tab, int) and tab >= len(self.tab_buttons):
+            self.stack.setCurrentIndex(tab)
+        else:
+            self.tab_buttons[self.index(self.get(tab)) if isinstance(tab, str) else tab].click()
+    
+    def _make_tab_clicked_func(self, index: int, clicked_func: Callable[[int, ], None] | None):
+        self.tab_src_changed_func_mapping[self.tab_buttons[index].text()] = clicked_func
+        
+        def func():
+            if clicked_func is not None:
+                clicked_func(index)
+            
+            self.stack.setCurrentIndex(index)
+            self.current_tab = self.tab_buttons[index].text()
+            
+            for i, button in enumerate(self.tab_buttons):
+                button.setChecked(i == index)
+            
+            child: QWidget = self.stack.children()[index]
+            if child.isWidgetType():
+                child.setFocus()
+        
+        return func
+
+class OptionsMenu(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.Popup)
+        self.setFrameShape(QFrame.Shape.Box)
+        
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(2, 2, 2, 2)
+    
+    def set_options(self, options: dict[str, Callable]):
+        clear_layout(self.main_layout)
+        
+        self.add_options(options)
+    
+    def add_options(self, options: dict[str, Callable]):
+        for option_name, option_func in options.items():
+            btn = QLabel(option_name)
+            btn.setProperty("class", "QPushButton")
+            btn.mousePressEvent = self._option_selected(option_func)
+            
+            self.main_layout.addWidget(btn)
+    
+    def _option_selected(self, option_func: Callable):
+        def func(a0):
+            option_func()
+            self.hide()
+        
+        return func
+
+class Image(QLabel):
+    def __init__(self, path: str, parent=None, width: int | None = None, height: int | None = None):
+        super().__init__(parent)
+        
+        pixmap = QPixmap(path)
+        
+        if width is not None or height is not None:
+            if height is not None and width is None:
+                self.setFixedSize(int(height * pixmap.size().width() / pixmap.size().height()), height)
+            elif width is not None and height is None:
+                self.setFixedSize(width, int(width * pixmap.size().height() / pixmap.size().width()))
+            else:
+                self.setFixedSize(width, height)
+        
+        self.setScaledContents(True)  # Optional: scale image to fit self
+        scaled_pixmap = pixmap.scaled(
+            self.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        self.setPixmap(scaled_pixmap)
+
+class LabeledField(QWidget):
+    """
+    A container widget that displays a floating-style label
+    above an inner widget (e.g. QLineEdit, QComboBox, custom form widget).
+    """
+
+    def __init__(
+        self,
+        title: str,
+        inner_widget: QWidget,
+        width_policy: QSizePolicy.Policy | None = None,
+        height_policy: QSizePolicy.Policy | None = None,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        
+        self.inner_widget = inner_widget
+
+        # -----------------------
+        # Size policy (optional)
+        # -----------------------
+        if width_policy or height_policy:
+            self.setSizePolicy(
+                width_policy or QSizePolicy.Policy.Preferred,
+                height_policy or QSizePolicy.Policy.Preferred,
+            )
+
+        # -----------------------
+        # Floating label
+        # -----------------------
+        self.label = QLabel(title, self)
+        self.label.setProperty("class", "labeled-title")
+        self.label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        # -----------------------
+        # Frame container
+        # -----------------------
+        self.container = QWidget(self)
+        self.container.setProperty("class", "labeled-container")
+
+        container_layout = QVBoxLayout(self.container)
+        container_layout.setContentsMargins(8, 10, 8, 8)
+        container_layout.setSpacing(6)
+        container_layout.addWidget(self.label)
+        container_layout.addWidget(self.inner_widget)
+
+        # -----------------------
+        # Main layout
+        # -----------------------
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self.container)
+    
+    def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
+        if alignment is not None:
+            self.inner_widget.layout().addWidget(widget, stretch, alignment)
+        else:
+            self.inner_widget.layout().addWidget(widget, stretch)
+    
+    def setTitle(self, text: str):
+        self.label.setText(text)
+
+class DropdownLabeledField(QWidget):
+    def __init__(
+        self,
+        title: str,
+        content: QWidget,
+        expanded: bool = False,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        
+        self.setStyleSheet("""
+            /* Header */
+            QFrame.dropdown-header {
+                /*background-color: #252526;*/
+                border: 1px solid #3c3c3c;
+                border-radius: 8px;
+            }
+
+            QFrame.dropdown-header:hover {
+                /*background-color: #2a2d2e;*/
+            }
+
+            /* Title */
+            QLabel.dropdown-title {
+                color: #d4d4d4;
+                font-size: 13px;
+                font-weight: 500;
+            }
+
+            /* Arrow */
+            QLabel.dropdown-arrow {
+                color: #9cdcfe;
+                font-size: 12px;
+            }
+
+            /* Content */
+            QFrame.dropdown-container {
+                border: 1px solid white;
+                border-top: none;
+                border-radius: 0 0 8px 8px;
+                /*background-color: #1e1e1e;*/
+            }
+
+                           """)
+        
+        self._expanded = expanded
+        self.content = content
+
+        # -----------------------
+        # Header
+        # -----------------------
+        self.header = QFrame()
+        self.header.setProperty("class", "dropdown-header")
+        self.header.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.title_label = QLabel(title)
+        self.title_label.setProperty("class", "dropdown-title")
+
+        self.arrow = QLabel("▶")
+        self.arrow.setProperty("class", "dropdown-arrow")
+        self.arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        header_layout = QHBoxLayout(self.header)
+        header_layout.setContentsMargins(10, 8, 10, 8)
+        header_layout.addWidget(self.title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(self.arrow)
+
+        # -----------------------
+        # Content container
+        # -----------------------
+        self.container = QFrame()
+        self.container.setProperty("class", "dropdown-container")
+
+        container_layout = QVBoxLayout(self.container)
+        container_layout.setContentsMargins(10, 8, 10, 10)
+        container_layout.addWidget(self.content)
+
+        # Animation
+        self.anim = QPropertyAnimation(self.container, b"maximumHeight")
+        self.anim.setDuration(180)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        # -----------------------
+        # Main layout
+        # -----------------------
+        layout = QVBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.header)
+        layout.addWidget(self.container)
+
+        self.container.setMaximumHeight(0 if not expanded else 1_000_000)
+        self._update_arrow()
+
+        # Click handling
+        self.header.mousePressEvent = self._toggle  # type: ignore
+
+    def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
+        if alignment is not None:
+            self.content.layout().addWidget(widget, stretch, alignment)
+        else:
+            self.content.layout().addWidget(widget, stretch)
+    
+    # -----------------------
+    # Logic
+    # -----------------------
+    def _toggle(self, event):
+        self.setExpanded(not self._expanded)
+
+    def setExpanded(self, value: bool):
+        if self._expanded == value:
+            return
+
+        self._expanded = value
+        self._update_arrow()
+
+        start = self.container.maximumHeight()
+        end = self.container.sizeHint().height() if value else 0
+
+        self.anim.stop()
+        self.anim.setStartValue(start)
+        self.anim.setEndValue(end)
+        self.anim.start()
+
+    def _update_arrow(self):
+        self.arrow.setText("▼" if self._expanded else "▶")
+
+    def isExpanded(self) -> bool:
+        return self._expanded
 
 

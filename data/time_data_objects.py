@@ -46,6 +46,45 @@ class Time:
     def in_hours(self):
         return self.in_minutes() / 60
     
+    def to_str(self):
+        return f"{self.hour}:{self.min}:{self.sec}"
+    
+    def normalize(self):
+        min_add = self.hour % 1
+        
+        # Hour
+        if not hasattr(self, "carry"):
+            self.carry = 0
+        
+        self.carry += self.hour // 24
+        
+        self.hour //= 1
+        self.hour %= 24
+        
+        self.hour = int(self.hour)
+        
+        # Minutes
+        self.min += min_add * 60
+        
+        sec_add = self.min % 1
+        
+        self.hour += self.min // 60
+        
+        self.min //= 1
+        self.min %= 60
+        
+        self.min = int(self.min)
+        
+        # Seconds
+        self.sec += sec_add * 60
+        
+        self.min += self.sec // 60
+        
+        self.sec %= 60
+        
+        if self.hour >= 24 or self.min >= 60:
+            self.normalize()
+    
     @staticmethod
     def str_to_time(str_time: str):
         _, _, _, t, _ = str_time.split()
@@ -89,6 +128,38 @@ class Period:
     def in_weeks(self):
         return self.in_days() / 7
     
+    def noramlize(self):
+        self.time.normalize()
+        self.date += self.time.carry
+        
+        orig_date = self.date
+        
+        m_list = list(MONTHS_OF_THE_YEAR)
+        
+        m_index = m_list.index(self.month)
+        day_index = DAYS_OF_THE_WEEK.index(self.day)
+        
+        if self.date > MONTHS_OF_THE_YEAR[self.month]:
+            self.date -= MONTHS_OF_THE_YEAR[self.month]
+            
+            self.month = m_list[(m_index + 1) % len(MONTHS_OF_THE_YEAR)]
+            
+            if m_index == len(MONTHS_OF_THE_YEAR) - 1:
+                self.year += 1
+            
+            self.day = DAYS_OF_THE_WEEK[(day_index + (MONTHS_OF_THE_YEAR[self.month] + self.date - orig_date) % 7) % 7]
+        elif self.date < 1:
+            self.date += MONTHS_OF_THE_YEAR[self.month]
+            
+            self.month = m_list[m_index - 1]
+            
+            if m_index == 0:
+                self.year -= 1
+            
+            self.day = DAYS_OF_THE_WEEK[(day_index - abs(orig_date - 1) % 7) % 7]
+        
+        del self.time.carry
+    
     @staticmethod
     def str_to_period(str_time: str):
         day, month, date, _, year = str_time.split()
@@ -99,6 +170,9 @@ class Period:
         year = int(year)
         
         return Period(Time.str_to_time(str_time), day, date, month, year)
+    
+    def to_str(self):
+        return f"{self.time.to_str()}, {self.day}, {positionify(self.date)} {self.month}, {self.year}"
     
     def copy(self):
         return Period(self.time.copy(), self.day, self.date, self.month, self.year)
