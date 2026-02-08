@@ -34,8 +34,6 @@ class BaseListWidget(QWidget):
         widget.adjustSize()
         
         self.widgets.append(widget)
-        
-        self.scroll_area.verticalScrollBar().setValue(widget.y())
     
     def get_widgets(self):
         return self.widgets
@@ -59,6 +57,16 @@ class BaseScrollListWidget(QWidget):
         self.setLayout(self._layout)
         
         self._layout.addWidget(self.scroll_widget)
+    
+    def _scroll_to(self, widget: QWidget):
+        widget.ensurePolished()
+        self.scroll_widget.ensureWidgetVisible(widget)
+    
+    def scroll_to(self, widget: QWidget, msec: Optional[int] = None):
+        QTimer.singleShot(
+            msec or 0,
+            lambda: self._scroll_to(widget)
+        )
     
     def addWidget(self, widget: "BaseAttendanceEntryWidget", stretch: int = 0, alignment: Qt.AlignmentFlag = None):
         if alignment is not None:
@@ -87,7 +95,7 @@ class BaseFilterCategoriesWidget(BaseListWidget):
                 cat_layout = QVBoxLayout()
                 cat_widg.setLayout(cat_layout)
                 
-                self.category_widgets[category_name] = DropdownLabeledField(category_name, cat_widg, True)
+                self.category_widgets[category_name] = DropdownLabeledField(category_name, cat_widg)
                 
                 super().addWidget(self.category_widgets[category_name])
             
@@ -111,25 +119,75 @@ class BaseFilterCategoriesWidget(BaseListWidget):
                     cat_layout = QVBoxLayout()
                     cat_widg.setLayout(cat_layout)
                     
-                    widgs[name] = [DropdownLabeledField(name, cat_widg, True), {}]
+                    widgs[name] = [DropdownLabeledField(name, cat_widg), {}]
                     
-                    parent.addWidget(widgs[name][0])
+                    parent.addWidget(widgs[name][0], alignment=alignment)
+                
+                self.category_widgets_tracker[-1].append(widgs[name][0])
                 
                 if i != len(category_name) - 1:
                     parent = widgs[name][0]
                     widgs = widgs[name][1]
-                    
-                    self.category_widgets_tracker[-1].append(parent)
                 else:
                     if alignment is not None:
                         widgs[name][0].addWidget(widget, stretch, alignment)
                     else:
                         widgs[name][0].addWidget(widget, stretch)
-                    
-                    self.category_widgets_tracker[-1].append(widget)
+            
+            self.category_widgets_tracker[-1].append(widget)
     
     def get_widgets(self):
         return self.category_widgets_tracker
+
+
+
+class BaseDataDisplayWidget(BaseScrollListWidget):
+    def __init__(self, data: AppData):
+        super().__init__()
+        
+        self.scroll_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        self.data = data
+        
+        self.widgets = self._get_filter_widgets()
+        
+        for i, staff_widget in enumerate(self.widgets.values()):
+            if not isinstance(staff_widget, tuple):
+                staff_widget.setVisible(i == 0)
+                self.main_layout.addWidget(staff_widget)
+        
+        for i, staff_widget in enumerate(self.widgets.values()):
+            if not i and isinstance(staff_widget, tuple):
+                for k in staff_widget:
+                    self.widgets[k].setVisible(True)
+
+        filters = QComboBox()
+        filters.addItems(list(self.widgets))
+        filters.currentIndexChanged.connect(self.filter)
+        
+        self._layout.insertWidget(0, filters, alignment=Qt.AlignmentFlag.AlignRight)
+    
+    def _get_filter_widgets(self):
+        pass
+    
+    @staticmethod
+    def is_entry_countable(entry: AttendanceEntry, valid_days: list[str], timeline_dates: list[tuple[Period, Period]]):
+        time_line_index = next((i for i, t_d in enumerate(timeline_dates) if t_d[0].in_minutes() <= entry.period.in_minutes() <= t_d[1].in_minutes()), None)
+        
+        if (
+            entry.is_check_in and
+            entry.period.day in valid_days and
+            time_line_index is not None
+            ):
+            return time_line_index
+    
+    def filter(self, index: int):
+        for i, staff_widget in enumerate(self.widgets.values()):
+            if isinstance(staff_widget, tuple) and index == i:
+                for k in staff_widget:
+                    self.widgets[k].setVisible(True)
+            else:
+                staff_widget.setVisible(index == i)
 
 
 

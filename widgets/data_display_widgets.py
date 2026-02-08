@@ -26,7 +26,7 @@ class BarChartCanvas(FigureCanvas):
         if display_values:
             for bar in bars:
                 height = bar.get_height()
-                self.axes.text(bar.get_x() + bar.get_width()/2, height + 0.5, f'{height}', 
+                self.axes.text(bar.get_x() + bar.get_width()/2, height + 0.5, f'{int(height)}', 
                                       ha='center', va='bottom')
         
         self.draw()

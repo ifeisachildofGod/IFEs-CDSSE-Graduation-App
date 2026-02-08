@@ -14,7 +14,7 @@ import asyncio
 from copy import deepcopy
 from bleak import BleakScanner, BleakClient
 from serial.tools.list_ports import comports
-from typing import Any, Optional, Callable, Literal
+from typing import Any, Optional, Callable, Literal, TypeVar
 
 # PyQt6 Imports
 from PyQt6.QtWidgets import (
@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QPixmap, QIntValidator, QPainter, QConicalGradient, QColor, QCursor
 from PyQt6.QtCore import pyqtSignal as pySignal
 from PyQt6.QtCore import pyqtBoundSignal as pyBoundSignal
-from PyQt6.QtCore import Qt, QThread, QPoint, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QThread, QPoint, QPropertyAnimation, QEasingCurve, QTimer
 
 # Matplotlib Imports
 from matplotlib.figure import Figure

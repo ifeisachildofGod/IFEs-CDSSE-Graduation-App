@@ -12,8 +12,8 @@ class AppData:
     teacher_cot: Time
     prefect_cot: Time
     
-    teacher_timeline_dates: tuple[Period, Period]
-    prefect_timeline_dates: tuple[Period, Period]
+    teacher_timeline_dates: list[tuple[Period, Period]]
+    prefect_timeline_dates: list[tuple[Period, Period]]
     
     teachers: dict[str, Teacher]
     prefects: dict[str, Prefect]

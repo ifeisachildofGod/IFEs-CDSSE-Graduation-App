@@ -6,12 +6,16 @@
     "prefect_cot": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}],
     
     "teacher_timeline_dates": [
-        ["$$Period$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Friday", "date": 25, "month": "July", "year": 2026}],
-        ["$$Period$$", {"time": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}], "day": "Friday", "date": 27, "month": "December", "year": 2026}]
+        [
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Thursday", "date": 1, "month": "January", "year": 0}],
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}], "day": "Friday", "date": 31, "month": "December", "year": 0}]
+        ]
     ],
     "prefect_timeline_dates": [
-        ["$$Period$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Monday", "date": 16, "month": "July", "year": 2026}],
-        ["$$Period$$", {"time": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}], "day": "Friday", "date": 27, "month": "December", "year": 2026}]
+        [
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Thursday", "date": 1, "month": "January", "year": 0}],
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}], "day": "Friday", "date": 31, "month": "December", "year": 0}]
+        ]
     ],
 
     "teachers": {

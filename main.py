@@ -68,7 +68,7 @@ class Window(QMainWindow):
         }
         
         if not self.file_path:
-            with open(self._default_file_path or "src/default-data/default.json") as file:
+            with open(self._default_file_path or "src/default-data.json") as file:
                 app_data = process_from_data(json.load(file), data_class_mapping)
                 
                 self.data = AppData(**app_data)

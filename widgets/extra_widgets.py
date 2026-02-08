@@ -3,86 +3,339 @@ from imports import *
 from theme import THEME_MANAGER
 from functions_and_uncategorized import *
 
-class SearchEdit[T](QFrame):
+# class SearchEdit[T](QFrame):
+#     def __init__(
+#         self,
+#         get_search_scope_callback: Callable[[], list[tuple[T, str, tuple[Optional[str], Optional[str], Optional[str]], list[Optional[str]]]]],
+#         goto_search_callback: Optional[Callable[[T], None]] = None
+#     ):
+#         super().__init__(None)
+        
+#         self.get_search_scope_callback = get_search_scope_callback
+#         self.goto_search_callback = goto_search_callback
+        
+#         self.setProperty("class", "option-menu")
+        
+#         self.setWindowFlags(Qt.WindowType.Popup)
+#         self.setFrameShape(QFrame.Shape.Box)
+        
+#         self.setFixedWidth(500)
+        
+#         self.main_layout = QVBoxLayout(self)
+#         self.main_layout.setContentsMargins(2, 2, 2, 2)
+        
+#         self.search_le = QLineEdit()
+#         self.search_le.setPlaceholderText("Search")
+#         self.search_le.setFixedWidth(500 - 4)
+#         self.search_le.textChanged.connect(self._make_find_dp)
+#         self.search_le.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        
+#         self.search_options_widget, self.search_options_layout = create_scrollable_widget(None, QVBoxLayout)
+#         self.search_options_widget.setProperty("class", "option-menu")
+#         self.search_options_widget.setFixedWidth(500 - 4)
+#         self.search_options_widget.setFixedHeight(220)
+        
+#         self.main_layout.addWidget(self.search_le, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
+#         self.main_layout.addWidget(self.search_options_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
+    
+#     def _make_find_dp(self, text: str):
+#         score_data = sorted(
+#             [
+#                 (data_point, (search_name, right_text, bottom_text, end_text), self._get_find_score(text, search_name, (right_text, bottom_text, end_text), backgrounds_texts))
+#                 for data_point, search_name, (right_text, bottom_text, end_text), backgrounds_texts in
+#                 self.get_search_scope_callback()
+#             ],
+#             key=lambda params: params[2][0],
+#             reverse=True
+#         )
+        
+#         options = [
+#             (self._stylize_text_indices(text, f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;", right_text, bottom_text, end_text, indices), self._make_find_func(data_point))
+#             for data_point, (text, right_text, bottom_text, end_text), (score, indices) in
+#             score_data[:20]
+#             if score != -1
+#             ]
+        
+#         if options:
+#             clear_layout(self.search_options_layout)
+            
+#             self.search_options_layout.addStretch()
+            
+#             for option_index, (option_name, option_func) in enumerate(options):
+#                 btn = QLabel(option_name)
+#                 btn.setProperty("class", "QPushButton")
+#                 btn.mousePressEvent = self._make_option_clicked_func(option_func)
+                
+#                 self.search_options_layout.insertWidget(option_index, btn, alignment=Qt.AlignmentFlag.AlignTop)
+            
+#             if not self.search_options_widget.isVisible():
+#                 self.search_options_widget.setVisible(True)
+#         elif self.search_options_widget.isVisible():
+#                 self.search_options_widget.setVisible(False)
+    
+#     def _make_find_func(self, data_point: T):
+#         def func():
+#             if self.goto_search_callback:
+#                 self.goto_search_callback(data_point)
+        
+#         return func
+    
+#     def _get_find_score(
+#         self,
+#         text: str,
+#         potential_match: str,
+#         extra_text_data: Optional[tuple[Optional[str], Optional[str], Optional[str]]] = None,
+#         backgrounds_texts: Optional[list[Optional[str]]] = None
+#     ):
+#         l_text = text.lower()
+#         l_target = potential_match.lower()
+        
+#         space_amt = 0
+#         additions = 0
+        
+#         text_len = len(l_text)
+#         target_len = len(l_target)
+        
+#         index = 0
+        
+#         bg_data = []
+        
+#         score_indices = []
+#         right_indices = []
+#         bottom_indices = []
+#         end_indices = []
+        
+#         right_score = -1
+#         bottom_score = -1
+#         end_score = -1
+        
+#         if extra_text_data:
+#             right_text, bottom_text, end_text = extra_text_data
+            
+#             if right_text:
+#                 right_score, right_indices = self._get_find_score(text, right_text)
+#                 right_indices = right_indices[0]
+#             if bottom_text:
+#                 bottom_score, bottom_indices = self._get_find_score(text, bottom_text)
+#                 bottom_indices = bottom_indices[0]
+#             if end_text:
+#                 end_score, end_indices = self._get_find_score(text, end_text)
+#                 end_indices = end_indices[0]
+        
+#         if backgrounds_texts:
+#             bg_data = [self._get_find_score(text, bg_text)[0] for bg_text in backgrounds_texts if bg_text is not None]
+        
+#         for i, c in enumerate(l_text):
+#             f_index = l_target[index:].find(c)
+            
+#             if f_index != -1 and text_len <= target_len:
+#                 space_amt += f_index
+#                 index += f_index + 1
+                
+#                 additions += text[i] == potential_match[index - 1]
+#                 additions += f_index == 0
+                
+#                 score_indices.append(index - 1)
+                
+#                 continue
+#             break
+#         else:
+#             return (text_len / (target_len + space_amt)) + additions, (score_indices, [], [], [])
+        
+#         if bottom_score == -1 and right_score != -1:
+#             return right_score / 20, ([], right_indices, [], [])
+#         elif right_score == -1 and bottom_score != -1:
+#             return bottom_score / 20, ([], [], bottom_indices, [])
+#         elif right_score != -1 and bottom_score != -1:
+#             return (right_score + bottom_score) / 20, ([], right_indices, bottom_indices, [])
+#         elif end_score != -1:
+#             return end_score / 20, ([], [], [], end_indices)
+#         elif bg_data:
+#             for bg_score in bg_data:
+#                 if bg_score != -1:
+#                     return bg_score / 20, ([], [], [], [])
+        
+#         return -1, ([], [], [], [])
+    
+#     def _stylize_text_indices(self, main_text: str, style: str, right_text: Optional[str], bottom_text: Optional[str], end_text: Optional[str], indices: tuple[list[int], list[int], list[int]]):
+#         main_indices, right_indices, bottom_indices, end_indices = indices
+        
+#         text = f"""
+#         <table width="100%">
+#         <tr>
+#             <td align="left">
+#             {"".join([f"<span style='font-size: 23px; {f"{style}" if i in main_indices else ""}'>{c}</span>" for i, c in enumerate(main_text)])}
+#             <span>    </span>
+#             {"".join([f"<span style='color: grey; font-size: 18px; font-weight: 300; {f"{style}" if i in right_indices else ""}'>{c}</span>" for i, c in enumerate(right_text)]) if right_text else ""}
+#             <br>
+#             {"".join([f"<span style='color: grey; font-size: 15px; font-weight: 500; {f"{style}" if i in bottom_indices else ""}'>{c}</span>" for i, c in enumerate(bottom_text)]) if bottom_text else ""}
+#             </td>
+#             <td align="right">
+#             {"".join([f"<span style='color: lightgrey; font-size: 10px; font-weight: 300; {f"{style}" if i in end_indices else ""}'>{c}</span>" for i, c in enumerate(end_text)]) if end_text else ""}
+#             </td>
+#             <br>
+#         </tr>
+#         </table>
+#         """
+#         return text
+    
+#     def _make_option_clicked_func(self, option_func: Callable[[], None]):
+#         def func(_):
+#             self.hide()
+            
+#             self.search_le.setText("")
+            
+#             option_func()
+        
+#         return func
+
+#     def show(self):
+#         self._make_find_dp("")
+        
+#         return super().show()
+
+
+T = TypeVar("T")
+
+
+class SearchEdit(QFrame):
+    DEBOUNCE_MS = 120
+    MAX_RESULTS = math.inf
+
     def __init__(
         self,
-        get_search_scope_callback: Callable[[], list[tuple[T, str, tuple[Optional[str], Optional[str], Optional[str]], list[Optional[str]]]]],
-        goto_search_callback: Optional[Callable[[T], None]] = None, unallowed_characters: Optional[list[str]] = None
+        get_search_scope_callback: Callable[
+            [], list[tuple[T, str, tuple[Optional[str], Optional[str], Optional[str]], list[Optional[str]]]]
+        ],
+        goto_search_callback: Optional[Callable[[T], None]] = None
     ):
         super().__init__(None)
-        
+
         self.get_search_scope_callback = get_search_scope_callback
         self.goto_search_callback = goto_search_callback
-        self.unallowed_characters = unallowed_characters or []
-        
-        self.setProperty("class", "option-menu")
-        
+
         self.setWindowFlags(Qt.WindowType.Popup)
         self.setFrameShape(QFrame.Shape.Box)
-        
+        self.setProperty("class", "option-menu")
         self.setFixedWidth(500)
-        
+
+        self._updating = False
+
+        # ---------- Layout ----------
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(2, 2, 2, 2)
         
         self.search_le = QLineEdit()
         self.search_le.setPlaceholderText("Search")
-        self.search_le.setFixedWidth(500 - 4)
-        self.search_le.textChanged.connect(self._make_find_dp)
+        self.search_le.setFixedWidth(496)
         self.search_le.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         
-        self.search_options_widget, self.search_options_layout = create_scrollable_widget(None, QVBoxLayout)
-        self.search_options_widget.setProperty("class", "option-menu")
-        self.search_options_widget.setFixedWidth(500 - 4)
-        self.search_options_widget.setFixedHeight(220)
+        self.main_layout.addWidget(self.search_le, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self.options_container, self.options_layout = create_scrollable_widget(None, QVBoxLayout)
+        self.options_container.setFixedWidth(496)
+        self.options_container.setFixedHeight(220)
+        self.options_container.setVisible(False)
+
+        self.main_layout.addWidget(self.options_container, alignment=Qt.AlignmentFlag.AlignTop)
+
+        # ---------- Debounce ----------
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.timeout.connect(self._run_search)
+
+        self.search_le.textEdited.connect(self._on_text_edited)
+
+    # ---------------------------------------------------------
+    # Event Flow
+    # ---------------------------------------------------------
+
+    def _on_text_edited(self, text: str):
+        self._search_timer.start(self.DEBOUNCE_MS)
+
+    def show(self):
+        self.search_le.blockSignals(True)
+        self.search_le.clear()
+        self.search_le.blockSignals(False)
+
+        self._run_search()
+        super().show()
+        self.search_le.setFocus()
+
+    # ---------------------------------------------------------
+    # Search Logic
+    # ---------------------------------------------------------
+
+    def _run_search(self):
+        if self._updating:
+            return
+
+        self._updating = True
+        text = self.search_le.text().strip()
+
+        clear_layout(self.options_layout)
         
-        self.main_layout.addWidget(self.search_le, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addWidget(self.search_options_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
-    
-    def _make_find_dp(self, text: str):
-        if next((False for c in self.unallowed_characters if c in text), True):
-            score_data = sorted(
-                [
-                    (data_point, (search_name, right_text, bottom_text, end_text), self._get_find_score(text, search_name, (right_text, bottom_text, end_text), backgrounds_texts))
-                    for data_point, search_name, (right_text, bottom_text, end_text), backgrounds_texts in
-                    self.get_search_scope_callback()
-                ],
-                key=lambda params: params[2][0],
-                reverse=True
+        self.options_layout.addStretch()
+        
+        if not text:
+            self.options_container.setVisible(False)
+            self._updating = False
+            return
+
+        score_data = sorted(
+            [
+                (
+                    data_point,
+                    (name, right, bottom, end),
+                    self._get_find_score(text, name, (right, bottom, end), bg)
+                )
+                for data_point, name, (right, bottom, end), bg
+                in self.get_search_scope_callback()
+            ],
+            key=lambda x: x[2][0],
+            reverse=True
+        )
+
+        added = 0
+        for index, (data_point, (name, right, bottom, end), (score, indices)) in enumerate(score_data):
+            if score == -1 or added >= self.MAX_RESULTS:
+                continue
+
+            label = QLabel(
+                self._stylize_text_indices(
+                    name,
+                    f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;",
+                    right,
+                    bottom,
+                    end,
+                    indices
+                )
             )
+            label.setProperty("class", "QPushButton")
+            label.mousePressEvent = self._make_option_clicked_func(data_point)
             
-            options = [
-                (self._stylize_text_indices(text, f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;", right_text, bottom_text, end_text, indices), self._make_find_func(data_point))
-                for data_point, (text, right_text, bottom_text, end_text), (score, indices) in
-                score_data
-                if score != -1
-                ]
-            
-            if options:
-                clear_layout(self.search_options_layout)
-                
-                self.search_options_layout.addStretch()
-                
-                for option_index, (option_name, option_func) in enumerate(options):
-                    btn = QLabel(option_name)
-                    btn.setProperty("class", "QPushButton")
-                    btn.mousePressEvent = self._make_option_clicked_func(option_func)
-                    
-                    self.search_options_layout.insertWidget(option_index, btn, alignment=Qt.AlignmentFlag.AlignTop)
-                
-                if not self.search_options_widget.isVisible():
-                    self.search_options_widget.setVisible(True)
-            elif self.search_options_widget.isVisible():
-                    self.search_options_widget.setVisible(False)
-        else:
-            self.search_le.setText("".join([c for c in text if c not in self.unallowed_characters]))
+            self.options_layout.insertWidget(index, label, alignment=Qt.AlignmentFlag.AlignTop)
+            added += 1
         
-    def _make_find_func(self, data_point: T):
-        def func():
+        self.options_container.setVisible(added > 0)
+        
+        self._updating = False
+
+    # ---------------------------------------------------------
+    # Helpers
+    # ---------------------------------------------------------
+
+    def _make_option_clicked_func(self, data_point: T):
+        def handler(_):
+            self.hide()
+            self.search_le.blockSignals(True)
+            self.search_le.clear()
+            self.search_le.blockSignals(False)
+
             if self.goto_search_callback:
                 self.goto_search_callback(data_point)
-        
-        return func
+
+        return handler
     
     def _get_find_score(
         self,
@@ -183,20 +436,7 @@ class SearchEdit[T](QFrame):
         """
         return text
     
-    def _make_option_clicked_func(self, option_func: Callable[[], None]):
-        def func(_):
-            self.hide()
-            
-            self.search_le.setText("")
-            
-            option_func()
-        
-        return func
 
-    def show(self):
-        self._make_find_dp("")
-        
-        return super().show()
 
 class TabViewWidget(QWidget):
     def __init__(self, bar_orientation: Literal["vertical", "horizontal"] = "horizontal"):
@@ -449,7 +689,7 @@ class DropdownLabeledField(QWidget):
 
                            """)
         
-        self._expanded = expanded
+        self._expanded = True
         self.content = content
 
         # -----------------------
@@ -462,7 +702,7 @@ class DropdownLabeledField(QWidget):
         self.title_label = QLabel(title)
         self.title_label.setProperty("class", "dropdown-title")
 
-        self.arrow = QLabel("▶")
+        self.arrow = RotatableLabel("▼", 90)
         self.arrow.setProperty("class", "dropdown-arrow")
         self.arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -481,12 +721,7 @@ class DropdownLabeledField(QWidget):
         container_layout = QVBoxLayout(self.container)
         container_layout.setContentsMargins(10, 8, 10, 10)
         container_layout.addWidget(self.content)
-
-        # Animation
-        self.anim = QPropertyAnimation(self.container, b"maximumHeight")
-        self.anim.setDuration(180)
-        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-
+        
         # -----------------------
         # Main layout
         # -----------------------
@@ -496,11 +731,16 @@ class DropdownLabeledField(QWidget):
         layout.addWidget(self.header)
         layout.addWidget(self.container)
 
-        self.container.setMaximumHeight(0 if not expanded else 1_000_000)
+        self.container.setMaximumHeight(0 if not self._expanded else 1_000_000)
         self._update_arrow()
 
         # Click handling
         self.header.mousePressEvent = self._toggle  # type: ignore
+        
+        self._end = 0
+        
+        if not expanded:
+            self._toggle(None)
 
     def addWidget(self, widget: QWidget, stretch: int = 0, alignment: Qt.AlignmentFlag | None = None):
         if alignment is not None:
@@ -520,19 +760,49 @@ class DropdownLabeledField(QWidget):
 
         self._expanded = value
         self._update_arrow()
-
-        start = self.container.maximumHeight()
-        end = self.container.sizeHint().height() if value else 0
-
-        self.anim.stop()
-        self.anim.setStartValue(start)
-        self.anim.setEndValue(end)
-        self.anim.start()
+        
+        self.container.setVisible(self._expanded)
 
     def _update_arrow(self):
-        self.arrow.setText("▼" if self._expanded else "▶")
+        self.arrow.setAngle(0 if self._expanded else 90)
 
     def isExpanded(self) -> bool:
         return self._expanded
 
+class RotatableLabel(QLabel):
+    mouseclicked = pySignal()
+    
+    def __init__(self, text, angle: int = 0, parent=None):
+        super().__init__(text, parent)
+        self.angle = angle  # Angle in degrees to rotate the text
+        self.setProperty("class", "Arrow")
+    
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.MouseButton.LeftButton:
+            self.mouseclicked.emit()
+    
+    def setAngle(self, angle):
+        self.angle = angle
+        self.update()  # Trigger a repaint
+    
+    def paintEvent(self, _):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+        # Save the painter's current state
+        painter.save()
+
+        # Translate to the center of the label
+        center = self.rect().center()
+        painter.translate(center)
+
+        # Rotate the painter
+        painter.rotate(self.angle)
+
+        # Translate back and draw the text
+        center.setX(center.x() + (2 if self.angle >= 180 else -1))
+        painter.translate(-center)
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
+
+        # Restore the painter's state
+        painter.restore()

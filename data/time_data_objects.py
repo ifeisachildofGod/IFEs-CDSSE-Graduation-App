@@ -110,9 +110,9 @@ class Period:
     year: int
     
     def in_seconds(self):
-        focus_months = list(MONTHS_OF_THE_YEAR.values())[:list(MONTHS_OF_THE_YEAR).index(self.month)] + [0]
+        prev_months = list(MONTHS_OF_THE_YEAR.values())[:list(MONTHS_OF_THE_YEAR).index(self.month)] + [0]
         
-        days = sum(focus_months) + self.date - 1
+        days = sum(prev_months) + self.date - 1
         
         return self.time.in_seconds() + days * 24 * 60 * 60
     
