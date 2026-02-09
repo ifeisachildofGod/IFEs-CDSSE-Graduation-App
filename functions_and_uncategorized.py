@@ -1,10 +1,13 @@
 from imports import *
 
-def is_check_in(t: Time, cin: Time, cout: Time):
-    cit_diff = t.in_seconds() - cin.in_seconds()
-    cot_diff = cout.in_seconds() - t.in_seconds()
+def check_states(t: Time, cin: Time, cout: Time, data: AppData, focus_type: Literal["Prefect", "Teacher"]):
+    cin_interval = data.prefect_cin_border_interval_minutes if focus_type == "Prefect" else data.teacher_cin_border_interval_minutes
+    cout_interval = data.prefect_cout_border_interval_minutes if focus_type == "Prefect" else data.teacher_cout_border_interval_minutes
     
-    return cit_diff <= cot_diff
+    is_cin = cin.in_minutes() - cin_interval <= t.in_minutes() <= cin.in_minutes() + cin_interval
+    is_cout = cout.in_minutes() - cout_interval <= t.in_minutes() <= cout.in_minutes() + cout_interval
+    
+    return is_cin, is_cout
 
 def process_from_data(data, data_class_mapping: dict[str, type] | None = None, class_mapping: dict[str, type] | None = None):
     class_mapping = class_mapping if class_mapping is not None else {}

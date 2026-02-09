@@ -193,7 +193,7 @@ class BaseDataDisplayWidget(BaseScrollListWidget):
 
 
 class BaseStaffListEntryWidget(QWidget):
-    def __init__(self, parent_widget: TabViewWidget, data: AppData, staff: Staff, comm_system: BaseCommSystem, card_scanner_index: int, staff_data_index: int):
+    def __init__(self, parent_widget: TabViewWidget, data: AppData, staff: Staff, comm_system: BaseCommSystem, card_scanner_widget: QWidget, staff_data_widget: QWidget):
         super().__init__()
         
         self.data = data
@@ -212,8 +212,8 @@ class BaseStaffListEntryWidget(QWidget):
         
         layout.addWidget(self.container)
         
-        self.staff_data_index = staff_data_index
-        self.card_scanner_index = card_scanner_index
+        self.staff_data_widget = staff_data_widget
+        self.card_scanner_widget = card_scanner_widget
         
         self.parent_widget = parent_widget
         
@@ -252,19 +252,17 @@ class BaseStaffListEntryWidget(QWidget):
         if not self.comm_system.connected:
             QMessageBox.warning(self.parentWidget(), "Not Connected", "No device connected")
         else:
-            card_scanner_widget = self.parent_widget.stack.widget(self.card_scanner_index)
-            card_scanner_widget.set_self(self.staff, self.iud_label)
+            self.card_scanner_widget.set_self(self.staff, self.iud_label)
             
-            self.parent_widget.stack.setCurrentIndex(self.card_scanner_index)
+            self.parent_widget.stack.setCurrentWidget(self.card_scanner_widget)
             self.comm_system.send_message("SCANNING")
     
     def view_data(self):
         self.comm_system.send_message(f"LCD:{self.staff.name.abrev}'s_-_Performance Data")
         
-        staff_data_widget = self.parent_widget.stack.widget(self.staff_data_index)
-        staff_data_widget.set_self(self.staff)
+        self.staff_data_widget.set_self(self.staff)
         
-        self.parent_widget.set_tab(self.staff_data_index)
+        self.parent_widget.stack.setCurrentWidget(self.staff_data_widget)
     
     def toogle_options(self):
         if self.options_menu.isVisible():
@@ -290,7 +288,7 @@ class BaseAttendanceEntryWidget(QWidget):
         self.main_layout = layout_type()
         self.container.setLayout(self.main_layout)
         
-        self.labeled_container = LabeledField(name, self.container, height_policy=QSizePolicy.Policy.Maximum)
+        self.labeled_container = LabeledField(f"{name} - Check {"IN" if data.is_check_in else "OUT"}", self.container, height_policy=QSizePolicy.Policy.Maximum)
         
         layout.addWidget(self.labeled_container)
 

@@ -79,30 +79,31 @@ class BarWidget(QWidget):
         self.main_layout.addWidget(self.main_keys_widget)
         self.main_layout.addWidget(self.bar_canvas)
     
-    def add_data(self, name: str, color, data: tuple[list, list] | dict):
+    def add_data(self, name: str, color, data: tuple[list, list] | dict, add_key: bool = True):
         if isinstance(data, dict):
             data = list(data), list(data.values())
         
-        keys_widget, keys_layout = create_widget(None, QHBoxLayout)
-        
-        keys_widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
-        
-        key_frame = QFrame()
-        key_frame.setStyleSheet(f"""
-            background-color: {color};
-            border: 1px solid black;
-        """)
-        key_frame.setFixedSize(20, 20)
-        
-        name_label = QLabel(name)
-        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        keys_layout.addWidget(key_frame)
-        keys_layout.addWidget(name_label, alignment=Qt.AlignmentFlag.AlignLeft)
+        if add_key:
+            keys_widget, keys_layout = create_widget(None, QHBoxLayout)
+            
+            keys_widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
+            
+            key_frame = QFrame()
+            key_frame.setStyleSheet(f"""
+                background-color: {color};
+                border: 1px solid black;
+            """)
+            key_frame.setFixedSize(20, 20)
+            
+            name_label = QLabel(name)
+            name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+            keys_layout.addWidget(key_frame)
+            keys_layout.addWidget(name_label, alignment=Qt.AlignmentFlag.AlignLeft)
+            
+            self.main_keys_layout.addWidget(keys_widget, alignment=Qt.AlignmentFlag.AlignLeft)
         
         self.bar_canvas.bar(data[0], data[1], display_values=True, color=color, edgecolor="black")
-        
-        self.main_keys_layout.addWidget(keys_widget, alignment=Qt.AlignmentFlag.AlignLeft)
     
     def set_title(self, title: str):
         self.bar_canvas.set_vars(title, self.bar_canvas.x_label, self.bar_canvas.y_label)

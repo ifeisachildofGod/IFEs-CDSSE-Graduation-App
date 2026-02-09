@@ -12,6 +12,12 @@ class AppData:
     teacher_cot: Time
     prefect_cot: Time
     
+    teacher_cin_border_interval_minutes: float | int
+    teacher_cout_border_interval_minutes: float | int
+    
+    prefect_cin_border_interval_minutes: float | int
+    prefect_cout_border_interval_minutes: float | int
+    
     teacher_timeline_dates: list[tuple[Period, Period]]
     prefect_timeline_dates: list[tuple[Period, Period]]
     

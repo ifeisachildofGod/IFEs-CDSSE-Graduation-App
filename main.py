@@ -77,20 +77,24 @@ class Window(QMainWindow):
             
             self.data = self.file_manager.get_file_data()
         
-        attendance_chart_widget = AttendanceBarWidget(self.data)
-        punctuality_graph_widget = PunctualityGraphWidget(self.data)
-        
         # Create stacked widget for content
-        attendance_widget = TabViewWidget("horizontal")
-        attendance_widget.add("Attendance", AttendanceWidget(attendance_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed, self.file_manager, 4))
-        attendance_widget.add("Staff", StaffListWidget(attendance_widget, self.data, self.target_connector, 4, 5))
-        attendance_widget.add("Attendance Chart", attendance_chart_widget)
-        attendance_widget.add("Punctuality Graph", punctuality_graph_widget)
-        attendance_widget.stack.addWidget(CardScanScreenWidget(self.target_connector, attendance_widget, self.saved_state_changed))
-        attendance_widget.stack.addWidget(StaffDataWidget(self.data, attendance_widget))
+        main_widget = TabViewWidget("horizontal")
+        
+        card_scan_widget = CardScanScreenWidget(self.target_connector, main_widget, self.saved_state_changed)
+        staff_data_widget = StaffDataWidget(self.data, main_widget)
+        
+        attendance_chart_widget = AttendanceBarWidget(self.data, staff_data_widget)
+        punctuality_graph_widget = PunctualityGraphWidget(self.data, staff_data_widget)
+        
+        main_widget.add("Attendance", AttendanceWidget(main_widget, self.data, attendance_chart_widget, punctuality_graph_widget, self.target_connector, self.saved_state_changed, self.file_manager, card_scan_widget))
+        main_widget.add("Staff", StaffListWidget(main_widget, self.data, self.target_connector, card_scan_widget, staff_data_widget))
+        main_widget.add("Attendance Chart", attendance_chart_widget)
+        main_widget.add("Punctuality Graph", punctuality_graph_widget)
+        main_widget.stack.addWidget(card_scan_widget)
+        main_widget.stack.addWidget(staff_data_widget)
         
         # main_screen_widget = TabViewWidget()
-        # main_screen_widget.add("Staff", attendance_widget, self.comm_send_screen_changed("STAFF"))
+        # main_screen_widget.add("Staff", main_widget, self.comm_send_screen_changed("STAFF"))
         
         def conn_changed(connected):
             if not connected:
@@ -104,7 +108,7 @@ class Window(QMainWindow):
         self.target_connector.device.connection_changed.emit(False)
         
         # main_layout.addWidget(main_screen_widget)
-        main_layout.addWidget(attendance_widget)
+        main_layout.addWidget(main_widget)
         
         self.setCentralWidget(container)
         

@@ -81,35 +81,36 @@ class AttendanceTeacherEntryWidget(BaseAttendanceEntryWidget):
         name_widget = _CharacterNameWidget(self.staff.name)
         layout_2.addWidget(name_widget)
         
-        _, layout_2_2 = create_widget(layout_2, QVBoxLayout)
-        
-        widget_2_2_2, layout_2_2_2 = create_scrollable_widget(None, QVBoxLayout)
-        
-        layout_2_2.addWidget(LabeledField("Subjects", widget_2_2_2, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
-        
-        periods_data: dict[tuple[str, str], dict[tuple[str, str], list[int]]] = {}
-        
-        for subject in self.staff.subjects:
-            for day_name, period in subject.periods:
-                if self.data.period.day == day_name:
-                    key = subject.id, subject.name
-                    sub_key = subject.cls.id, subject.cls.name
-                    
-                    if periods_data.get(key) is None:
-                        periods_data[key] = {}
-                    if periods_data[key].get(sub_key) is None:
-                        periods_data[key][sub_key] = []
-                    periods_data[key][sub_key].append(period)
-        
-        for (_, subject_name), subject_data in periods_data.items():
-            widget_2_2_2_1, layout_2_2_2_1 = create_widget(None, QGridLayout)
+        if data.is_check_in:
+            _, layout_2_2 = create_widget(layout_2, QVBoxLayout)
             
-            for index, ((_, cls_name), periods) in enumerate(subject_data.items()):
-                widget_2_2_2_1_1, layout_2_2_2_1_1 = create_widget(None, QVBoxLayout)
-                for period in periods:
-                    layout_2_2_2_1_1.addWidget(QLabel(f"{positionify(str(period))} period"), alignment=Qt.AlignmentFlag.AlignTop)
-                layout_2_2_2_1.addWidget(LabeledField(cls_name, widget_2_2_2_1_1), int(index / 3), index % 3)
-            layout_2_2_2.addWidget(LabeledField(subject_name, widget_2_2_2_1))
+            widget_2_2_2, layout_2_2_2 = create_scrollable_widget(None, QVBoxLayout)
+            
+            layout_2_2.addWidget(LabeledField("Subjects", widget_2_2_2, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
+            
+            periods_data: dict[tuple[str, str], dict[tuple[str, str], list[int]]] = {}
+            
+            for subject in self.staff.subjects:
+                for day_name, period in subject.periods:
+                    if self.data.period.day == day_name:
+                        key = subject.id, subject.name
+                        sub_key = subject.cls.id, subject.cls.name
+                        
+                        if periods_data.get(key) is None:
+                            periods_data[key] = {}
+                        if periods_data[key].get(sub_key) is None:
+                            periods_data[key][sub_key] = []
+                        periods_data[key][sub_key].append(period)
+            
+            for (_, subject_name), subject_data in periods_data.items():
+                widget_2_2_2_1, layout_2_2_2_1 = create_widget(None, QGridLayout)
+                
+                for index, ((_, cls_name), periods) in enumerate(subject_data.items()):
+                    widget_2_2_2_1_1, layout_2_2_2_1_1 = create_widget(None, QVBoxLayout)
+                    for period in periods:
+                        layout_2_2_2_1_1.addWidget(QLabel(f"{positionify(str(period))} period"), alignment=Qt.AlignmentFlag.AlignTop)
+                    layout_2_2_2_1.addWidget(LabeledField(cls_name, widget_2_2_2_1_1), int(index / 3), index % 3)
+                layout_2_2_2.addWidget(LabeledField(subject_name, widget_2_2_2_1))
 
 class AttendancePrefectEntryWidget(BaseAttendanceEntryWidget):
     def __init__(self, data: AttendanceEntry):
@@ -152,12 +153,13 @@ class AttendancePrefectEntryWidget(BaseAttendanceEntryWidget):
         
         layout_2_2.addWidget(LabeledField("Class", QLabel(self.staff.cls.name), height_policy=QSizePolicy.Policy.Maximum))
         
-        widget_1_3_1, layout_1_3_1 = create_scrollable_widget(None, QVBoxLayout)
-        
-        for index, duty in enumerate(self.staff.duties.get(self.data.period.day, [])):
-            layout_1_3_1.addWidget(QLabel(f"{index + 1}. {duty}"))
-        
-        layout_2_2.addWidget(LabeledField("Duties", widget_1_3_1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
+        if data.is_check_in:
+            widget_1_3_1, layout_1_3_1 = create_scrollable_widget(None, QVBoxLayout)
+            
+            for index, duty in enumerate(self.staff.duties.get(self.data.period.day, [])):
+                layout_1_3_1.addWidget(QLabel(f"{index + 1}. {duty}"))
+            
+            layout_2_2.addWidget(LabeledField("Duties", widget_1_3_1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
         
         layout_2.addWidget(widget_2_2)
 

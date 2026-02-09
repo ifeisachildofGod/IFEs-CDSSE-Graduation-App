@@ -5,16 +5,22 @@
     "teacher_cot": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}],
     "prefect_cot": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}],
     
+    "teacher_cin_border_interval_minutes": 120,
+    "teacher_cout_border_interval_minutes": 180,
+    
+    "prefect_cin_border_interval_minutes": 120,
+    "prefect_cout_border_interval_minutes": 120,
+
     "teacher_timeline_dates": [
         [
-            ["$$Period$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Thursday", "date": 1, "month": "January", "year": 0}],
-            ["$$Period$$", {"time": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}], "day": "Friday", "date": 31, "month": "December", "year": 0}]
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 0, "min": 0, "sec": 0}], "day": "Thursday", "date": 1, "month": "January", "year": 0}],
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 0, "min": 0, "sec": 0}], "day": "Friday", "date": 31, "month": "December", "year": 0}]
         ]
     ],
     "prefect_timeline_dates": [
         [
-            ["$$Period$$", {"time": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}], "day": "Thursday", "date": 1, "month": "January", "year": 0}],
-            ["$$Period$$", {"time": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}], "day": "Friday", "date": 31, "month": "December", "year": 0}]
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 0, "min": 0, "sec": 0}], "day": "Thursday", "date": 1, "month": "January", "year": 0}],
+            ["$$Period$$", {"time": ["$$Time$$", {"hour": 0, "min": 0, "sec": 0}], "day": "Friday", "date": 31, "month": "December", "year": 0}]
         ]
     ],
 
@@ -25,6 +31,15 @@
             "name": ["$$CharacterName$$", {"sur": "Brandon", "first": "Chukwudi", "middle": "Joseph", "abrev": "Chukwudi", "other": null}],
             "department": ["$$Department$$", {"id": "dep_id1", "name": "Physics"}],
             "subjects": [["$$Subject$$", {"id": "subj_id1", "name": "Physics", "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}], "periods": [["Monday", 2], ["Wednesday", 2]]}]],
+            "img_path": "src/profile-images/p_id1.png",
+            "attendance": []
+        }],
+        "t_id2": ["$$Teacher$$", {
+            "id": "t_id2",
+            "IUD": "F93E13B4",
+            "name": ["$$CharacterName$$", {"sur": "Uncle", "first": "Tunde", "middle": "Badagry", "abrev": "Mantissa", "other": null}],
+            "department": ["$$Department$$", {"id": "dep_id2", "name": "Mathematics"}],
+            "subjects": [["$$Subject$$", {"id": "subj_id2", "name": "Mathematics", "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}], "periods": [["Tuesday", 2], ["Thursday", 2], ["Friday", 2]]}]],
             "img_path": "src/profile-images/p_id1.png",
             "attendance": []
         }]

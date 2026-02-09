@@ -53,15 +53,16 @@ class Time:
         min_add = self.hour % 1
         
         # Hour
-        if not hasattr(self, "carry"):
-            self.carry = 0
+        _carry = int(self.hour // 24)
         
-        self.carry += self.hour // 24
+        if _carry:
+            if not hasattr(self, "_carry"):
+                self._carry = 0
+            
+            self._carry += int(self.hour // 24)
         
         self.hour //= 1
         self.hour %= 24
-        
-        self.hour = int(self.hour)
         
         # Minutes
         self.min += min_add * 60
@@ -81,6 +82,11 @@ class Time:
         self.min += self.sec // 60
         
         self.sec %= 60
+        
+        self.hour = int(self.hour)
+        self.min = int(self.min)
+        if self.sec % 1 == 0:
+            self.sec = int(self.sec)
         
         if self.hour >= 24 or self.min >= 60:
             self.normalize()
@@ -128,16 +134,23 @@ class Period:
     def in_weeks(self):
         return self.in_days() / 7
     
-    def noramlize(self):
+    def normalize(self):
         self.time.normalize()
-        self.date += self.time.carry
+        
+        _time_carry = 0
+        if hasattr(self.time, "_carry"):
+            _time_carry = self.time._carry
+        
+        self.date += _time_carry
         
         orig_date = self.date
         
         m_list = list(MONTHS_OF_THE_YEAR)
         
         m_index = m_list.index(self.month)
-        day_index = DAYS_OF_THE_WEEK.index(self.day)
+        day_index = (DAYS_OF_THE_WEEK.index(self.day) + _time_carry) % 7
+        
+        self.day = DAYS_OF_THE_WEEK[day_index]
         
         if self.date > MONTHS_OF_THE_YEAR[self.month]:
             self.date -= MONTHS_OF_THE_YEAR[self.month]
@@ -158,7 +171,8 @@ class Period:
             
             self.day = DAYS_OF_THE_WEEK[(day_index - abs(orig_date - 1) % 7) % 7]
         
-        del self.time.carry
+        if hasattr(self.time, "_carry"):
+            del self.time._carry
     
     @staticmethod
     def str_to_period(str_time: str):
@@ -172,7 +186,7 @@ class Period:
         return Period(Time.str_to_time(str_time), day, date, month, year)
     
     def to_str(self):
-        return f"{self.time.to_str()}, {self.day}, {positionify(self.date)} {self.month}, {self.year}"
+        return f"{self.time.to_str()} {self.day} {positionify(self.date)} {self.month} {self.year}"
     
     def copy(self):
         return Period(self.time.copy(), self.day, self.date, self.month, self.year)

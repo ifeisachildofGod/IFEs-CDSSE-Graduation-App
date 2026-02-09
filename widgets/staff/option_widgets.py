@@ -80,36 +80,18 @@ class StaffDataWidget(BaseOptionsWidget):
         self.main_layout.addWidget(LabeledField("Stats", stats_widget))
         self.main_layout.addWidget(LabeledField("Graphs and Charts", chart_widget))
     
-    def set_self(self, staff):
-        super().set_self(staff)
-        
+    def get_staff_attendance_data(self, staff: Staff):
         if isinstance(staff, Teacher):
-            bar_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Attendance Chart"
-            graph_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Punctuality Graph"
-            staff_list = list(self.data.teachers)
-            cit = self.data.teacher_cit
             timeline_dates = self.data.teacher_timeline_dates
         elif isinstance(staff, Prefect):
-            bar_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Cummulative Attendance Chart"
-            graph_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Average Punctuality Graph"
-            staff_list = list(self.data.prefects)
-            cit = self.data.prefect_cit
             timeline_dates = self.data.prefect_timeline_dates
         else:
             raise Exception()
         
-        self.attendance_widget.clear()
-        self.punctuality_widget.clear()
-        
-        self.attendance_widget.set_title(bar_title)
-        self.punctuality_widget.set_title(graph_title)
-        
-        color = list(get_named_colors_mapping().values())[staff_list.index(staff.id) % len(list(get_named_colors_mapping().values()))]
-        
         weeks_data = {}
         
         for attendance in staff.attendance:
-            if BaseDataDisplayWidget.is_entry_countable(attendance, self.staff_working_days[staff.id], timeline_dates):
+            if BaseDataDisplayWidget.is_entry_countable(attendance, self.staff_working_days[staff.id], timeline_dates) is not None:
                 curr_index = DAYS_OF_THE_WEEK.index(attendance.period.day)
                 
                 days = self.staff_working_days[staff.id]
@@ -137,42 +119,122 @@ class StaffDataWidget(BaseOptionsWidget):
                     
                     weeks_data[name_key][0] += 1
         
-        weeks_data = {key: amt_attended / total * 100 for key, (amt_attended, total) in weeks_data.items()}
-        self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, weeks_data)
+        return weeks_data, {key: amt_attended / total * 100 for key, (amt_attended, total) in weeks_data.items()}
+    
+    def get_staff_punctuality_data(self, staff: Staff):
+        if isinstance(staff, Teacher):
+            timeline_dates = self.data.teacher_timeline_dates
+            cit = self.data.teacher_cit
+            working_days = list(set(flatten([[d for d, _ in s.periods] for s in staff.subjects])))
+        elif isinstance(staff, Prefect):
+            timeline_dates = self.data.prefect_timeline_dates
+            cit = self.data.prefect_cit
+            working_days = list(staff.duties)
+        else:
+            raise Exception()
         
         full_y_plot_points = []
-        for index, day in enumerate(self.staff_working_days[staff.id]):
-            y_plot_points = [cit.in_minutes() - attendance.period.time.in_minutes() for attendance in staff.attendance if BaseDataDisplayWidget.is_entry_countable(attendance, [day], timeline_dates)]
+        for index, day in enumerate(working_days):
+            y_plot_points = [cit.in_minutes() - attendance.period.time.in_minutes() for attendance in staff.attendance if BaseDataDisplayWidget.is_entry_countable(attendance, [day], timeline_dates) is not None]
             
             if y_plot_points:
-                full_y_plot_points += y_plot_points
-                
-                self.punctuality_widget.plot(None, y_plot_points, label=day, marker='o', color=list(get_named_colors_mapping().values())[index + 200])
+                full_y_plot_points.append([index, day, y_plot_points])
         
-        score_list = [1 + int(p) / 60 for p in full_y_plot_points]
+        return full_y_plot_points
+    
+    def set_self(self, staff):
+        super().set_self(staff)
         
-        p_score_factor = sum(score_list) / len(score_list)
+        if isinstance(staff, Teacher):
+            bar_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Attendance Chart"
+            graph_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Punctuality Graph"
+            staff_list = list(self.data.teachers)
+            timeline_dates = self.data.teacher_timeline_dates
+        elif isinstance(staff, Prefect):
+            bar_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Cummulative Attendance Chart"
+            graph_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Average Punctuality Graph"
+            staff_list = list(self.data.prefects)
+            timeline_dates = self.data.prefect_timeline_dates
+        else:
+            raise Exception()
         
-        r = max(min((1 - (p_score_factor)) * 255 if weeks_data else 255, 255), 0)
-        g = max(min(p_score_factor * 255 if weeks_data else 255, 255), 0)
-        b = 0 if weeks_data else 255
+        self.attendance_widget.clear()
+        self.punctuality_widget.clear()
+        
+        self.attendance_widget.set_title(bar_title)
+        self.punctuality_widget.set_title(graph_title)
+        
+        color = list(get_named_colors_mapping().values())[staff_list.index(staff.id) % len(list(get_named_colors_mapping().values()))]
+        
+        weeks_data, plot_data = self.get_staff_attendance_data(staff)
+        
+        self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, plot_data)
+        
+        full_y_plot_points = self.get_staff_punctuality_data(staff)
+        
+        for index, day, y_plot_points in full_y_plot_points:
+            self.punctuality_widget.plot(None, y_plot_points, label=day, marker='o', color=list(get_named_colors_mapping().values())[index + 200])
+        
+        full_y_plot_points = list(flatten([p for _, _, p in full_y_plot_points]))
+        
+        if full_y_plot_points:
+            score_list = [1 + int(p) / 60 for p in full_y_plot_points]
+            
+            p_score_factor = sum(score_list) / len(score_list)
+            
+            r = max(min((1 - (p_score_factor)) * 255, 255), 0)
+            g = max(min(p_score_factor * 255, 255), 0)
+            b = 10
+        else:
+            r = g = b = 255
+        
+        cins = [att.period.time.in_seconds() / len(staff.attendance) for att in staff.attendance if att.is_check_in]
+        avg_cit = Time(0, 0, sum(cins))
+        avg_cit.normalize()
+        avg_cit.sec = int(avg_cit.sec)
+        
+        couts = [att.period.time.in_seconds() / len(staff.attendance) for att in staff.attendance if not att.is_check_in]
+        avg_cot = Time(0, 0, sum(couts))
+        avg_cot.normalize()
+        avg_cot.sec = int(avg_cot.sec)
         
         self.attendance_amt_widget.setText(
             f"""
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Attendance:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Total Attended:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
-                        {str(int(sum(list(weeks_data.values())) / len(weeks_data))) + "%" if weeks_data else "No Data"}
+                        {str(sum(amt_attended for amt_attended, _ in weeks_data.values())) if plot_data else "No Data"}
                     </span>
             </span>
             <br>
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Punctuality:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Attendance:  </span>
+                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
+                        {str(int(sum(list(plot_data.values())) / len(plot_data))) + "%" if plot_data else "No Data"}
+                    </span>
+            </span>
+            <br>
+            <span>
+                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Punctuality Score:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: rgb({r}, {g}, {b});'>
-                    {str(int(p_score_factor * 100)) + "%" if weeks_data else "No Data"}
+                    {round(p_score_factor, 2) if full_y_plot_points else "No Data"}
                 </span>
             </span>
-                
+            <br>
+            <span>
+                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Avg Check-in Time:  </span>
+                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
+                        {avg_cit.to_str() if cins else "No Data"}
+                    </span>
+            </span>
+            <br>
+            <span>
+                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Avg Check-out Time:  </span>
+                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
+                        {avg_cot.to_str() if couts else "No Data"}
+                    </span>
+            </span>
+            <br>
             """)
 
 class CardScanScreenWidget(BaseOptionsWidget):
