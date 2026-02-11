@@ -282,7 +282,7 @@ class CardScanScreenWidget(BaseOptionsWidget):
     def finished(self):
         self.iud_label = None
         if self.iud_changed:
-            self.comm_system.send_message(f"LCD:{self.staff.name.abrev} IUD_-_set to {self.staff.IUD}")
+            self.comm_system.send_message("REGISTERED")
         return super().finished()
     
     def connection_changed(self, state: bool):

@@ -534,7 +534,7 @@ class AttendanceWidget(BaseScrollListWidget):
                 staff = next((teacher for _, teacher in self.data.teachers.items() if teacher.IUD == IUD), None)
                 
                 if staff is None:
-                    self.comm_system.send_message(f"UNREGISTERED {IUD}")
+                    self.comm_system.send_message(f"UNREGISTERED")
                     QMessageBox.warning(self.parent_widget, "CardScannerError", f"No staff is linked to this card (IUD: {IUD})")
                     
                     return
@@ -556,7 +556,7 @@ class AttendanceWidget(BaseScrollListWidget):
             
             self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
             
-            self.comm_system.send_message(f"LCD:{("Welcome" if not another_present else "Goodbye")} {staff.name.abrev}_-_{entry.period.time.hour}:{entry.period.time.min}:{entry.period.time.sec}")
+            self.comm_system.send_message(f"REGISTERED")
             
             if self.file_manager.current_path is not None:
                 self.file_manager.save()
