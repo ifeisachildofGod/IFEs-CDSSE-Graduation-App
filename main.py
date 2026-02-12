@@ -80,7 +80,7 @@ class Window(QMainWindow):
         # Create stacked widget for content
         main_widget = TabViewWidget("horizontal")
         
-        card_scan_widget = CardScanScreenWidget(self.target_connector, main_widget, self.saved_state_changed)
+        card_scan_widget = CardScanScreenWidget(self.data, self.target_connector, main_widget, self.saved_state_changed)
         staff_data_widget = StaffDataWidget(self.data, main_widget)
         
         attendance_chart_widget = AttendanceBarWidget(self.data, staff_data_widget)

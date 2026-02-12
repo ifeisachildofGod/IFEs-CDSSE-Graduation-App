@@ -1,12 +1,12 @@
 {
-    "teacher_cit": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}],
-    "prefect_cit": ["$$Time$$", {"hour": 8, "min": 0, "sec": 0}],
+    "teacher_cit": ["$$Time$$", {"hour": 7, "min": 0, "sec": 0}],
+    "prefect_cit": ["$$Time$$", {"hour": 7, "min": 0, "sec": 0}],
     
     "teacher_cot": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}],
-    "prefect_cot": ["$$Time$$", {"hour": 15, "min": 30, "sec": 0}],
+    "prefect_cot": ["$$Time$$", {"hour": 14, "min": 0, "sec": 0}],
     
-    "teacher_cin_border_interval_minutes": 120,
-    "teacher_cout_border_interval_minutes": 180,
+    "teacher_cin_border_interval_minutes": 240,
+    "teacher_cout_border_interval_minutes": 240,
     
     "prefect_cin_border_interval_minutes": 120,
     "prefect_cout_border_interval_minutes": 120,
@@ -88,7 +88,7 @@
         }],
         "p_id5": ["$$Prefect$$", {
             "id": "p_id5",
-            "IUD": "89A2A1B4",
+            "IUD": "89A2A1B2",
             "name": ["$$CharacterName$$", {"sur": "Eze", "first": "Ifebuche", "middle": "Esther", "abrev": "Esther", "other": null}],
             "post_name": "Games Prefect (Girl)",
             "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],

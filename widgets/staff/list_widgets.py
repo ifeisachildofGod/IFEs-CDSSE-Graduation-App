@@ -4,6 +4,7 @@ import random
 from theme import THEME_MANAGER
 
 from widgets.base_widgets import *
+
 from widgets.staff.option_widgets import *
 from widgets.staff.entry_widgets import *
 from widgets.data_display_widgets import *
@@ -14,6 +15,35 @@ class AttendanceWidget(BaseScrollListWidget):
     
     def __init__(self, parent_widget: TabViewWidget, data: AppData, attendance_chart_widget: "AttendanceBarWidget", punctuality_graph_widget: "PunctualityGraphWidget", comm_system: BaseCommSystem, saved_state_changed: pyBoundSignal, file_manager: FileManager, card_scanner_widget: CardScanScreenWidget):
         super().__init__()
+        
+        self.kb_dbg_action_mapping = {}
+        self.cs_dbg_action_mapping = {}
+        
+        try:
+            action_mappings = {
+                "kb": self.kb_dbg_action_mapping,
+                "cs": self.cs_dbg_action_mapping,
+            }
+            
+            with open("src/dbg.txt") as dbg_file:
+                mapping_data = dbg_file.read().strip().splitlines()
+                
+                for text in mapping_data:
+                    text = text.strip()
+                    
+                    key = None
+                    for key in action_mappings:
+                        if text.startswith(key):
+                            break
+                    
+                    if key is not None:
+                        text = text.removeprefix(key).strip()
+                        
+                        k, v = text.split(",")
+                        
+                        action_mappings[key][k.strip()] = v.strip()
+        except Exception as e:
+            print(e)
         
         self.data = data
         self.comm_system = comm_system
@@ -526,8 +556,8 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.main_layout.insertWidget(0, time_widget)
     
-    def add_new_attendance_log(self, IUD: str, period: Period | None):
-        if self.parent_widget.stack.currentWidget() != self.card_scanner_widget:
+    def add_new_attendance_log(self, IUD: str, period: Period | None = None):
+        if not self.card_scanner_widget.just_scanned:
             staff = next((prefect for _, prefect in self.data.prefects.items() if prefect.IUD == IUD), None)
             
             if staff is None:
@@ -539,58 +569,47 @@ class AttendanceWidget(BaseScrollListWidget):
                     
                     return
             
-            period = period or Period.str_to_period(time.ctime())
+            for k, v in self.cs_dbg_action_mapping.items():
+                if k.lower() in ("period", IUD.lower()):
+                    period = Period.str_to_period(v)
+                
+                if IUD.lower() == k.lower():
+                    break
+            else:
+                period = period or Period.str_to_period(time.ctime())
             
             another_present = next((True for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), False)
             ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
             
-            is_ci = check_states(period.time, ct_data[0], ct_data[1], self.data, "Prefect" if isinstance(staff, Prefect) else "Teacher")
+            ci_states = check_states(period.time, ct_data[0], ct_data[1], self.data, "Prefect" if isinstance(staff, Prefect) else "Teacher")
             
-            if another_present and is_ci[0] or not another_present and is_ci[1]:
+            if ((another_present and ci_states[0]) or (not another_present and ci_states[1])) and (ci_states[0] != ci_states[1] or ci_states[0]):
+                self.comm_system.send_message(f"UNSCANNED")
                 return
             
-            entry = AttendanceEntry(period, staff, is_ci[0])
+            entry = AttendanceEntry(period, staff, ci_states[0])
             
             self.data.attendance_data.append(entry)
             staff.attendance.append(entry)
             
             self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
             
-            self.comm_system.send_message(f"REGISTERED")
+            self.comm_system.send_message(f"SCANNED")
             
             if self.file_manager.current_path is not None:
                 self.file_manager.save()
     
     def keyPressEvent(self, a0):
-        period = self._random_period()
+        period = Period.str_to_period(time.ctime())
         
-        if a0.text() == "a":
-            self.add_new_attendance_log("51232123A", period)
-        elif a0.text() == "b":
-            self.add_new_attendance_log("6999BDB2", period)
-        elif a0.text() == "c":
-            self.add_new_attendance_log("637B910C", period)
-        elif a0.text() == "d":
-            self.add_new_attendance_log("A3DEB30C", period)
-        elif a0.text() == "e":
-            self.add_new_attendance_log("B3A6DE0C", period)
-        elif a0.text() == "f":
-            self.add_new_attendance_log("89A2A1B4", period)
-        elif a0.text() == "g":
-            self.add_new_attendance_log("F93E13B4", period)
-        elif a0.text() == "h":
-            curr_period = Period.str_to_period(time.ctime())
-            
-            for _ in range(40):
-                self.add_new_attendance_log("51232123A", curr_period)
-                self.add_new_attendance_log("6999BDB2", curr_period)
-                self.add_new_attendance_log("F93E13B4", curr_period)
-                
-                curr_period.time.hour += 24 + 17
-                
-                curr_period.normalize()
-                
-                curr_period = curr_period.copy()
+        for k, v in self.kb_dbg_action_mapping.items():
+            if k.lower() == "period":
+                try:
+                    period = Period.str_to_period(v)
+                except Exception as e:
+                    print(e)
+            elif a0.text() == k:
+                self.add_new_attendance_log(v, period)
         
         return super().keyPressEvent(a0)
 

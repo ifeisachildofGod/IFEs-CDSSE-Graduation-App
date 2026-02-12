@@ -4,8 +4,8 @@ def check_states(t: Time, cin: Time, cout: Time, data: AppData, focus_type: Lite
     cin_interval = data.prefect_cin_border_interval_minutes if focus_type == "Prefect" else data.teacher_cin_border_interval_minutes
     cout_interval = data.prefect_cout_border_interval_minutes if focus_type == "Prefect" else data.teacher_cout_border_interval_minutes
     
-    is_cin = cin.in_minutes() - cin_interval <= t.in_minutes() <= cin.in_minutes() + cin_interval
-    is_cout = cout.in_minutes() - cout_interval <= t.in_minutes() <= cout.in_minutes() + cout_interval
+    is_cin = (cin.in_minutes() - cin_interval) <= t.in_minutes() <= (cin.in_minutes() + cin_interval)
+    is_cout = (cout.in_minutes() - cout_interval) <= t.in_minutes() <= (cout.in_minutes() + cout_interval)
     
     return is_cin, is_cout
 

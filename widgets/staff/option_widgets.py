@@ -240,10 +240,13 @@ class StaffDataWidget(BaseOptionsWidget):
 class CardScanScreenWidget(BaseOptionsWidget):
     comm_signal = pySignal(str)
     
-    def __init__(self, comm_system: BaseCommSystem, parent_widget: TabViewWidget, saved_state_changed: pyBoundSignal):
+    def __init__(self, data: AppData, comm_system: BaseCommSystem, parent_widget: TabViewWidget, saved_state_changed: pyBoundSignal):
         super().__init__(parent_widget, "static")
+        self.data = data
         self.comm_system = comm_system
         self.saved_state_changed = saved_state_changed
+        
+        self.just_scanned = False
         
         self.setStyleSheet("""
             QLabel {
@@ -272,6 +275,9 @@ class CardScanScreenWidget(BaseOptionsWidget):
         self.comm_system.connection_changed_signal.connect(self.connection_changed)
         self.iud_changed = False
     
+    def _deactivate_just_scanned(self):
+        self.just_scanned = False
+    
     def set_self(self, staff: Staff, iud_label: QLabel):
         super().set_self(staff)
         
@@ -283,6 +289,8 @@ class CardScanScreenWidget(BaseOptionsWidget):
         self.iud_label = None
         if self.iud_changed:
             self.comm_system.send_message("REGISTERED")
+            self.just_scanned = True
+            QTimer.singleShot(500, self._deactivate_just_scanned)
         return super().finished()
     
     def connection_changed(self, state: bool):
@@ -291,6 +299,16 @@ class CardScanScreenWidget(BaseOptionsWidget):
     
     def scanned(self, data: str):
         if self.parent_widget.stack.currentIndex() == self.parent_widget.stack.indexOf(self):
+            for prefect in self.data.prefects.values():
+                if prefect.IUD == data:
+                    self.comm_system.send_message("UNREGISTERED")
+                    raise KeyError(f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full_name()}")
+            else:
+                for teacher in self.data.teachers.values():
+                    if teacher.IUD == data:
+                        self.comm_system.send_message("UNREGISTERED")
+                        raise KeyError(f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full_name()}")
+            
             self.staff.IUD = data
             self.iud_label.setText(self.staff.IUD)
             
