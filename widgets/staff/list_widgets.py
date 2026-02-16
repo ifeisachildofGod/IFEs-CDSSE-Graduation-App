@@ -585,6 +585,12 @@ class AttendanceWidget(BaseScrollListWidget):
             
             if ((another_present and ci_states[0]) or (not another_present and ci_states[1])) and (ci_states[0] != ci_states[1] or ci_states[0]):
                 self.comm_system.send_message(f"UNSCANNED")
+                
+                QTimer.singleShot(
+                    500,
+                    lambda: self.comm_system.send_message(f"    {IUD}_is not assigned")
+                )
+                
                 return
             
             entry = AttendanceEntry(period, staff, ci_states[0])
@@ -595,6 +601,10 @@ class AttendanceWidget(BaseScrollListWidget):
             self._add_attendance_log(entry, len(self.data.attendance_data) - 1)
             
             self.comm_system.send_message(f"SCANNED")
+            QTimer.singleShot(
+                500,
+                lambda: self.comm_system.send_message(f"   Good{' morning' if ci_states[0] else "bye"}" + "_"+ (" " * int(8 - (len(entry.staff.name.abrev) / 2))) + f"{entry.staff.name.abrev}")
+            )
             
             if self.file_manager.current_path is not None:
                 self.file_manager.save()

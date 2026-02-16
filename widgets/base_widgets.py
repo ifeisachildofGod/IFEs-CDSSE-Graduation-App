@@ -258,7 +258,7 @@ class BaseStaffListEntryWidget(QWidget):
             self.comm_system.send_message("SCANNING")
     
     def view_data(self):
-        self.comm_system.send_message(f"LCD:{self.staff.name.abrev}'s_-_Performance Data")
+        self.comm_system.send_message((" " * int(8 - (len(self.staff.name.abrev) / 2))) + f"{self.staff.name.abrev}'s_Performance Data")
         
         self.staff_data_widget.set_self(self.staff)
         

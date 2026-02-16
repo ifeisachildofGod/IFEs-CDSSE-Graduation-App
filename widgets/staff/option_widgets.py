@@ -302,12 +302,26 @@ class CardScanScreenWidget(BaseOptionsWidget):
             for prefect in self.data.prefects.values():
                 if prefect.IUD == data:
                     self.comm_system.send_message("UNREGISTERED")
-                    raise KeyError(f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full_name()}")
+                    self.just_scanned = True
+                    
+                    self.comm_system.error_func(KeyError(f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full_name()}"))
+                    
+                    QTimer.singleShot(500, self._deactivate_just_scanned)
+                    self.iud_changed = False
+                    self.finished()
+                    return
             else:
                 for teacher in self.data.teachers.values():
                     if teacher.IUD == data:
                         self.comm_system.send_message("UNREGISTERED")
-                        raise KeyError(f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full_name()}")
+                        self.just_scanned = True
+                        
+                        self.comm_system.error_func(KeyError(f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full_name()}"))
+                        
+                        QTimer.singleShot(500, self._deactivate_just_scanned)
+                        self.iud_changed = False
+                        self.finished()
+                        return
             
             self.staff.IUD = data
             self.iud_label.setText(self.staff.IUD)
@@ -317,4 +331,9 @@ class CardScanScreenWidget(BaseOptionsWidget):
             self.iud_changed = True
             self.finished()
             self.iud_changed = False
+            
+            QTimer.singleShot(
+                500,
+                lambda: QMessageBox.information("IUD Set", f"{self.staff.name.full_name()}'s IUD has been set to {self.staff.IUD}")
+            )
 
