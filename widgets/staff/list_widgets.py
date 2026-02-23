@@ -592,7 +592,7 @@ class AttendanceWidget(BaseScrollListWidget):
                     lambda: self.comm_system.send_message(f"   Invalid scan  _     period     ")
                 )
                 
-                QMessageBox.warning(self.parent_widget, "CardScanTimingError", f"Either registry time is not appropriate \n\n <b>OR</b> \n\n You want to check-out before you check-in")
+                QMessageBox.warning(self.parent_widget, "CardScanTimingError", f"Either registry time is not appropriate \nOR\n You want to check-out before you check-in")
                 
                 return
             
