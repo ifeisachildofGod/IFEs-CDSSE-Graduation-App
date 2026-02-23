@@ -565,6 +565,7 @@ class AttendanceWidget(BaseScrollListWidget):
                 
                 if staff is None:
                     self.comm_system.send_message(f"UNREGISTERED")
+                    
                     QMessageBox.warning(self.parent_widget, "CardScannerError", f"No staff is linked to this card (IUD: {IUD})")
                     
                     return
@@ -588,8 +589,10 @@ class AttendanceWidget(BaseScrollListWidget):
                 
                 QTimer.singleShot(
                     500,
-                    lambda: self.comm_system.send_message(f"    {IUD}_is not assigned")
+                    lambda: self.comm_system.send_message(f"   Invalid scan  _     period     ")
                 )
+                
+                QMessageBox.warning(self.parent_widget, "CardScanTimingError", f"Either registry time is not appropriate \n\n <b>OR</b> \n\n You want to check-out before you check-in")
                 
                 return
             

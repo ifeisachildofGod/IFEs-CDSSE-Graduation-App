@@ -1,5 +1,5 @@
 
-from widgets.comm_widgets import *
+from widgets.dialog_widgets import *
 from widgets.staff.option_widgets import *
 from widgets.staff.list_widgets import *
 
@@ -39,7 +39,9 @@ class Window(QMainWindow):
         
         self.target_connector = BaseCommSystem(CommDevice(self.comm_signal, self.connection_changed, "", None, None), self.connection_error_func)
         self.connection_set_up_screen = CommSetupDialog(self, self.target_connector)
+        self.management_set_up_screen = ManageSetupDialog(self)
         self.file_manager = FileManager(self, self.file_path, "CDSSE Attendance Files (*.cdat)")
+        
         self.file_manager.set_callbacks(self.save_callback, self.open_callback, self.load_callback)
         
         self.create_menu_bar()
@@ -93,21 +95,15 @@ class Window(QMainWindow):
         main_widget.stack.addWidget(card_scan_widget)
         main_widget.stack.addWidget(staff_data_widget)
         
-        # main_screen_widget = TabViewWidget()
-        # main_screen_widget.add("Staff", main_widget, self.comm_send_screen_changed("STAFF"))
-        
         def conn_changed(connected):
             if not connected:
                 self.connection_set_up_screen.comm_disconnect()
-            # else:
-            #     main_screen_widget.tab_src_changed_func_mapping.get(main_screen_widget.current_tab, lambda _: ())(list(main_screen_widget.tab_src_changed_func_mapping.keys()).index(main_screen_widget.current_tab))
         
         self.connection_set_up_screen.disconnect_button.clicked.connect(self.disconnect_connection)
         self.target_connector.device.connection_changed.connect(conn_changed)
         self.saved_state_changed.connect(self.saved_state_changed_func)
         self.target_connector.device.connection_changed.emit(False)
         
-        # main_layout.addWidget(main_screen_widget)
         main_layout.addWidget(main_widget)
         
         self.setCentralWidget(container)
@@ -143,6 +139,9 @@ class Window(QMainWindow):
     def activate_connection_screen(self):
         self.connection_set_up_screen.exec()
     
+    def activate_management_screen(self):
+        self.management_set_up_screen.exec()
+    
     def connection_error_func(self, e: Exception, conn_error: bool = True):
         self.target_connector.stop_connection()
         self.connection_set_up_screen.comm_disconnect()
@@ -164,7 +163,7 @@ class Window(QMainWindow):
         # File Menu
         file_menu = menubar.addMenu("File")
         # Connection Menu
-        connection_menu = menubar.addMenu("Connection")
+        connection_menu = menubar.addMenu("Set")
         
         # Add all actions
         file_menu.addAction("New", "Ctrl+N", self.file_manager.new)
@@ -173,7 +172,8 @@ class Window(QMainWindow):
         file_menu.addAction("Save As", "Ctrl+Shift+S", self.file_manager.save_as)
         file_menu.addAction("Close", self.close)
         
-        connection_menu.addAction("Set Connection", "Ctrl+F", self.activate_connection_screen)
+        connection_menu.addAction("Device Connection", "Ctrl+D", self.activate_connection_screen)
+        connection_menu.addAction("Management State", "Ctrl+M", self.activate_management_screen)
     
     def save_callback(self, file_path: str):
         self.file_path = file_path

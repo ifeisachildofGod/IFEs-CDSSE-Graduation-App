@@ -3,49 +3,6 @@ from widgets.base_widgets import *
 from widgets.data_display_widgets import *
 
 
-class BaseOptionsWidget(QWidget):
-    def __init__(self, parent_widget: TabViewWidget, widget_type: Literal["scrollable", "static"]):
-        super().__init__()
-        
-        layout = QVBoxLayout(self)
-        
-        self.container, self.main_layout = create_scrollable_widget(layout, QVBoxLayout) if widget_type == "scrollable" else (create_widget(layout, QVBoxLayout) if widget_type == "static" else None)
-        
-        self.parent_widget = parent_widget
-        
-        _, upper_layout = create_widget(self.main_layout, QHBoxLayout)
-        
-        cancel_button = QPushButton("×")
-        cancel_button.setFixedSize(30, 30)
-        cancel_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                font-size: 30px;
-                border-radius: 15px;
-                padding: 0px;
-            }}
-            QPushButton:hover {{
-                color: {THEME_MANAGER.pallete_get("disabled")};
-            }}
-        """)
-        cancel_button.clicked.connect(self.finished)
-        
-        upper_layout.addStretch()
-        upper_layout.addWidget(cancel_button, Qt.AlignmentFlag.AlignRight)
-        
-        self.staff: Staff | None = None
-        self.staff_index: int | None = None
-    
-    def set_self(self, staff: Staff):
-        self.staff = staff
-    
-    def finished(self):
-        self.parent_widget.set_tab("Staff")
-        
-        self.staff = None
-        self.staff_index = None
-
-
 class StaffDataWidget(BaseOptionsWidget):
     def __init__(self, data: AppData, parent_widget: TabViewWidget):
         super().__init__(parent_widget, "scrollable")
@@ -289,6 +246,12 @@ class CardScanScreenWidget(BaseOptionsWidget):
         self.iud_label = None
         if self.iud_changed:
             self.comm_system.send_message("REGISTERED")
+            
+            QTimer.singleShot(
+                500,
+                lambda: QMessageBox.information(self.parent_widget, "IUD Set", f"{self.staff.name.full_name()}'s IUD has been set to {self.staff.IUD}")
+            )
+            
             self.just_scanned = True
             QTimer.singleShot(500, self._deactivate_just_scanned)
         return super().finished()
@@ -304,7 +267,9 @@ class CardScanScreenWidget(BaseOptionsWidget):
                     self.comm_system.send_message("UNREGISTERED")
                     self.just_scanned = True
                     
-                    self.comm_system.error_func(KeyError(f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full_name()}"))
+                    QTimer.singleShot(1000, lambda: self.comm_system.send_message("Card has already_ been assigned "))
+                    
+                    QMessageBox.warning(self.parent_widget, "KeyError", f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full_name()}")
                     
                     QTimer.singleShot(500, self._deactivate_just_scanned)
                     self.iud_changed = False
@@ -316,7 +281,9 @@ class CardScanScreenWidget(BaseOptionsWidget):
                         self.comm_system.send_message("UNREGISTERED")
                         self.just_scanned = True
                         
-                        self.comm_system.error_func(KeyError(f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full_name()}"))
+                        QTimer.singleShot(1000, lambda: self.comm_system.send_message("Card has already_ been assigned "))
+                        
+                        QMessageBox.warning(self.parent_widget, "KeyError", f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full_name()}")
                         
                         QTimer.singleShot(500, self._deactivate_just_scanned)
                         self.iud_changed = False
@@ -331,9 +298,4 @@ class CardScanScreenWidget(BaseOptionsWidget):
             self.iud_changed = True
             self.finished()
             self.iud_changed = False
-            
-            QTimer.singleShot(
-                500,
-                lambda: QMessageBox.information("IUD Set", f"{self.staff.name.full_name()}'s IUD has been set to {self.staff.IUD}")
-            )
 

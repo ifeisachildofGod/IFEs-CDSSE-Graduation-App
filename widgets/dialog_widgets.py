@@ -1,31 +1,19 @@
 from widgets.base_widgets import *
 
 
-class CommSetupDialog(QDialog):
+class CommSetupDialog(BaseDialogWidget):
     update_signal = pySignal(dict, list)
     bluetooth_state_signal = pySignal(bool)
     
     def __init__(self, parent: QMainWindow, connector: BaseCommSystem):
-        super().__init__(parent=parent)
+        super().__init__(parent, "Device Connection Configuration")
         
         self.connector = connector
-        
-        self.setFocus()
-        self.setModal(True)
-        self.setWindowTitle("Connection Config")
-        self.setFixedWidth(700)
-        self.setFixedHeight(500)
         
         self.connected = False
         self.connect_clicked = False
         self.connect_only_widgets = []
         self.data: dict[str, str | int | Literal["bt", "ser"]] = {}
-        
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        
-        self.container, self.main_layout = create_widget(layout, QVBoxLayout)
-        
         
         serial_widget, serial_layout = create_widget(None, QVBoxLayout)
         serial_widget.setProperty("class", "labeled-widget")
@@ -275,4 +263,17 @@ class CommSetupDialog(QDialog):
                 return
             
         return super().closeEvent(a0)
+
+
+class ManageSetupDialog(BaseDialogWidget):
+    def __init__(self, parent):
+        super().__init__(parent, "Management Mode")
+        
+        sch_att_rb = QCheckBox("School Attendance")
+        t_reg_rb = QCheckBox("Teacher Registry")
+        
+        self.main_layout.addStretch()
+        self.main_layout.addWidget(sch_att_rb, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(t_reg_rb, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addStretch()
 

@@ -140,6 +140,48 @@ class BaseFilterCategoriesWidget(BaseListWidget):
         return self.category_widgets_tracker
 
 
+class BaseOptionsWidget(QWidget):
+    def __init__(self, parent_widget: TabViewWidget, widget_type: Literal["scrollable", "static"]):
+        super().__init__()
+        
+        layout = QVBoxLayout(self)
+        
+        self.container, self.main_layout = create_scrollable_widget(layout, QVBoxLayout) if widget_type == "scrollable" else (create_widget(layout, QVBoxLayout) if widget_type == "static" else None)
+        
+        self.parent_widget = parent_widget
+        
+        _, upper_layout = create_widget(self.main_layout, QHBoxLayout)
+        
+        cancel_button = QPushButton("×")
+        cancel_button.setFixedSize(30, 30)
+        cancel_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                font-size: 30px;
+                border-radius: 15px;
+                padding: 0px;
+            }}
+            QPushButton:hover {{
+                color: {THEME_MANAGER.pallete_get("disabled")};
+            }}
+        """)
+        cancel_button.clicked.connect(self.finished)
+        
+        upper_layout.addStretch()
+        upper_layout.addWidget(cancel_button, Qt.AlignmentFlag.AlignRight)
+        
+        self.staff: Staff | None = None
+        self.staff_index: int | None = None
+    
+    def set_self(self, staff: Staff):
+        self.staff = staff
+    
+    def finished(self):
+        self.parent_widget.set_tab("Staff")
+        
+        self.staff = None
+        self.staff_index = None
+
 
 class BaseDataDisplayWidget(BaseScrollListWidget):
     def __init__(self, data: AppData):
@@ -190,6 +232,20 @@ class BaseDataDisplayWidget(BaseScrollListWidget):
                 staff_widget.setVisible(index == i)
 
 
+class BaseDialogWidget(QDialog):
+    def __init__(self, parent: QMainWindow, title: str):
+        super().__init__(parent=parent)
+        
+        self.setFocus()
+        self.setModal(True)
+        self.setWindowTitle(title)
+        self.setFixedWidth(700)
+        self.setFixedHeight(500)
+        
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        
+        self.container, self.main_layout = create_widget(layout, QVBoxLayout)
 
 
 class BaseStaffListEntryWidget(QWidget):

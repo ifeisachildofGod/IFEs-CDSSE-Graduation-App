@@ -52,7 +52,7 @@ class BaseCommSystem:
     
     def send_message(self, msg: str):
         if self.connected:
-            self.msg_buffer.append(msg.strip())
+            self.msg_buffer.append(msg)
     
     def start_connection(self):
         if self.connected:

@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QCheckBox, QSlider,
     QFrame, QLayout, QApplication,
     QDialog, QLineEdit, QMainWindow, QComboBox,
-    QFileDialog, QDial
+    QFileDialog, QDial, QRadioButton
 )
 from PyQt6.QtGui import QIcon, QPixmap, QIntValidator, QPainter, QConicalGradient, QColor, QCursor
 from PyQt6.QtCore import pyqtSignal as pySignal
