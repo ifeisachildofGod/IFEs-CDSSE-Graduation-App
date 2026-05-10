@@ -117,21 +117,24 @@
       "primary": "#32a6ff",
       "primary_hover": "#5db5fd",
       "primary_pressed": "#1a9cff",
-      "highlight": "#a3d6ff"
+      "highlight": "#a3d6ff",
+      "variant": "#bb0000"
     },
     "green": {
       "primary_text": "#f0f0f0",
       "primary": "#0e9c15",
       "primary_hover": "#17bb11",
       "primary_pressed": "#15810b",
-      "highlight": "#00cc00"
+      "highlight": "#00cc00",
+      "variant": "#fcff0f"
     },
     "red": {
       "primary_text": "#f0f0f0",
       "primary": "#9c0e0e",
       "primary_hover": "#bb1111",
       "primary_pressed": "#810b0b",
-      "highlight": "#cc0000"
+      "highlight": "#cc0000",
+      "variant": "#270fff"
     }
   },
 

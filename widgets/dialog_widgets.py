@@ -265,15 +265,15 @@ class CommSetupDialog(BaseDialogWidget):
         return super().closeEvent(a0)
 
 
-class ManageSetupDialog(BaseDialogWidget):
-    def __init__(self, parent):
-        super().__init__(parent, "Management Mode")
+# class ManageSetupDialog(BaseDialogWidget):
+#     def __init__(self, parent):
+#         super().__init__(parent, "Management Mode")
         
-        sch_att_rb = QCheckBox("School Attendance")
-        t_reg_rb = QCheckBox("Teacher Registry")
+#         sch_att_rb = QCheckBox("School Attendance")
+#         t_reg_rb = QCheckBox("Teacher Registry")
         
-        self.main_layout.addStretch()
-        self.main_layout.addWidget(sch_att_rb, alignment=Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addWidget(t_reg_rb, alignment=Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addStretch()
+#         self.main_layout.addStretch()
+#         self.main_layout.addWidget(sch_att_rb, alignment=Qt.AlignmentFlag.AlignCenter)
+#         self.main_layout.addWidget(t_reg_rb, alignment=Qt.AlignmentFlag.AlignCenter)
+#         self.main_layout.addStretch()
 

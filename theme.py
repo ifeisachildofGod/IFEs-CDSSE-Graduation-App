@@ -154,7 +154,7 @@ stylesheet = '''
   }}
   
   QMenu::item:selected {{
-    background-color: {highlight};
+    background-color: {primary_pressed};
   }}
   
   .option-menu QPushButton, .option-menu .QPushButton {{
@@ -423,8 +423,8 @@ class ThemeManager:
     
     def pallete_get(self, name: str):
         return self.current_pallete[name]
-      
+
 
 THEME_MANAGER = ThemeManager()
-THEME_MANAGER.load_theme_from_file("src/themes.json")
+THEME_MANAGER.load_theme_from_file("src/palette.json")
 

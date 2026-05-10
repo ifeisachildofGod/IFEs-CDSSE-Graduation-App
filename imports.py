@@ -1,20 +1,13 @@
 """All imports needed in main files"""
 
 # Utility Imports
-import os
-import sys
-import math
-import time
-import json
-import numpy
-import pickle
-import serial
-import socket
-import asyncio
+import os, sys, math, time, json, numpy, pickle, serial, socket, asyncio
 from copy import deepcopy
+from typing import Any, Optional, Callable, Literal, TypeVar
+
+# Communication Imports
 from bleak import BleakScanner, BleakClient
 from serial.tools.list_ports import comports
-from typing import Any, Optional, Callable, Literal, TypeVar
 
 # PyQt6 Imports
 from PyQt6.QtWidgets import (
@@ -26,10 +19,16 @@ from PyQt6.QtWidgets import (
     QDialog, QLineEdit, QMainWindow, QComboBox,
     QFileDialog, QDial, QRadioButton
 )
-from PyQt6.QtGui import QIcon, QPixmap, QIntValidator, QPainter, QConicalGradient, QColor, QCursor
-from PyQt6.QtCore import pyqtSignal as pySignal
-from PyQt6.QtCore import pyqtBoundSignal as pyBoundSignal
-from PyQt6.QtCore import Qt, QThread, QPoint, QPropertyAnimation, QEasingCurve, QTimer
+from PyQt6.QtGui import (
+    QIcon, QPixmap, QIntValidator,
+    QPainter, QConicalGradient, QColor,
+    QCursor, QAction, QActionGroup
+)
+from PyQt6.QtCore import (
+    Qt, QThread, QPoint,
+    QPropertyAnimation, QEasingCurve, QTimer,
+    pyqtBoundSignal as pyBoundSignal, pyqtSignal as pySignal
+)
 
 # Matplotlib Imports
 from matplotlib.figure import Figure
