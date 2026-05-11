@@ -247,10 +247,10 @@ class CardScanScreenWidget(BaseOptionsWidget):
         if self.iud_changed:
             self.comm_system.send_message("REGISTERED")
             
-            QTimer.singleShot(
-                500,
-                lambda: QMessageBox.information(self.parent_widget, "IUD Set", f"{self.staff.name.full_name()}'s IUD has been set to {self.staff.IUD}")
-            )
+            # QTimer.singleShot(
+            #     500,
+            #     lambda: QMessageBox.information(self.parent_widget, "IUD Set", f"{self.staff.name.full_name()}'s IUD has been set to {self.staff.IUD}")
+            # )
             
             self.just_scanned = True
             QTimer.singleShot(500, self._deactivate_just_scanned)
