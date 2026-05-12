@@ -107,11 +107,11 @@ class SearchEdit(QFrame):
         for index, (data_point, (name, right, bottom, end), (score, indices)) in enumerate(score_data):
             if score == -1 or added >= self.MAX_RESULTS:
                 continue
-
+            
             label = QLabel(
                 self._stylize_text_indices(
                     name,
-                    f"color: {THEME_MANAGER.pallete_get("primary")}; font-weight: bold;",
+                    f"color: {THEME_MANAGER.pallete_get("teacher")}; font-weight: bold;",
                     right,
                     bottom,
                     end,
@@ -228,14 +228,14 @@ class SearchEdit(QFrame):
         <table width="100%">
         <tr>
             <td align="left">
-            {"".join([f"<span style='font-size: 23px; {f"{style}" if i in main_indices else ""}'>{c}</span>" for i, c in enumerate(main_text)])}
+            {"".join([f"<span style='font-size: 23px; {f"{style}" if i in main_indices else f"color: {THEME_MANAGER.pallete_get("text")}"}'>{c}</span>" for i, c in enumerate(main_text)])}
             <span>    </span>
-            {"".join([f"<span style='color: grey; font-size: 18px; font-weight: 300; {f"{style}" if i in right_indices else ""}'>{c}</span>" for i, c in enumerate(right_text)]) if right_text else ""}
+            {"".join([f"<span style='color: {THEME_MANAGER.pallete_get("disabled")}; font-size: 18px; font-weight: 400; {f"{style}" if i in right_indices else ""}'>{c}</span>" for i, c in enumerate(right_text)]) if right_text else ""}
             <br>
-            {"".join([f"<span style='color: grey; font-size: 15px; font-weight: 500; {f"{style}" if i in bottom_indices else ""}'>{c}</span>" for i, c in enumerate(bottom_text)]) if bottom_text else ""}
+            {"".join([f"<span style='color: {THEME_MANAGER.pallete_get("disabled")}; font-size: 15px; font-weight: 600; {f"{style}" if i in bottom_indices else ""}'>{c}</span>" for i, c in enumerate(bottom_text)]) if bottom_text else ""}
             </td>
             <td align="right">
-            {"".join([f"<span style='color: lightgrey; font-size: 10px; font-weight: 300; {f"{style}" if i in end_indices else ""}'>{c}</span>" for i, c in enumerate(end_text)]) if end_text else ""}
+            {"".join([f"<span style='color: {THEME_MANAGER.pallete_get("hover3")}; font-size: 10px; font-weight: 400; {f"{style}" if i in end_indices else ""}'>{c}</span>" for i, c in enumerate(end_text)]) if end_text else ""}
             </td>
             <br>
         </tr>
