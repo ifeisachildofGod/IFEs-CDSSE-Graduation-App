@@ -19,6 +19,8 @@ class StaffDataWidget(BaseOptionsWidget):
         
         self.attendance_amt_widget = QLabel()
         
+        staff_data_widget, self.staff_data_layout = create_widget(None, QVBoxLayout)
+        
         self.punctuality_widget: GraphWidget | None = None
         
         self.attendance_widget = BarWidget("", "Time (Weeks)", "Attendance (%)")
@@ -26,15 +28,19 @@ class StaffDataWidget(BaseOptionsWidget):
         
         self.punctuality_widget = GraphWidget("", "Scan Interval", "Punctuality (Minutes)")
         
-        stats_widget, stats_layout = create_widget(None, QVBoxLayout)
-        chart_widget, chart_layout = create_widget(None, QVBoxLayout)
+        stats_widget, stats_layout = create_scrollable_widget(None, QHBoxLayout) ; stats_layout.setContentsMargins(50, 20, 50, 20)
+        chart_widget, chart_layout = create_widget(None, QVBoxLayout) ; chart_layout.setContentsMargins(10, 0, 10, 0)
         
-        stats_layout.addWidget(self.attendance_amt_widget)
+        stats_widget.setMinimumHeight(200)
+        stats_layout.setSpacing(150)
+        
+        stats_layout.addWidget(staff_data_widget, alignment=Qt.AlignmentFlag.AlignTop, stretch=5)
+        stats_layout.addWidget(self.attendance_amt_widget, alignment=Qt.AlignmentFlag.AlignTop, stretch=5)
         
         chart_layout.addWidget(self.attendance_widget)
         chart_layout.addWidget(self.punctuality_widget)
         
-        self.main_layout.addWidget(LabeledField("Stats", stats_widget))
+        self.main_layout.addWidget(LabeledField("General Information", stats_widget))
         self.main_layout.addWidget(LabeledField("Graphs and Charts", chart_widget))
     
     def get_staff_attendance_data(self, staff: Staff):
@@ -102,16 +108,22 @@ class StaffDataWidget(BaseOptionsWidget):
     def set_self(self, staff):
         super().set_self(staff)
         
+        clear_layout(self.staff_data_layout)
+        
         if isinstance(staff, Teacher):
             bar_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Attendance Chart"
             graph_title = f"{staff.name.sur} {staff.name.first}'s Monthly Cummulative Punctuality Graph"
             staff_list = list(self.data.teachers)
             timeline_dates = self.data.teacher_timeline_dates
+            staff_position_data = "Department", staff.department.name
+            cls = None
         elif isinstance(staff, Prefect):
             bar_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Cummulative Attendance Chart"
             graph_title = f"{staff.name.sur} {staff.name.first}'s ({staff.post_name}) Monthly Average Punctuality Graph"
             staff_list = list(self.data.prefects)
             timeline_dates = self.data.prefect_timeline_dates
+            staff_position_data = "Post", staff.post_name
+            cls = staff.cls.name
         else:
             raise Exception()
         
@@ -145,54 +157,112 @@ class StaffDataWidget(BaseOptionsWidget):
         else:
             r = g = b = 255
         
-        cins = [att.period.time.in_seconds() / len(staff.attendance) for att in staff.attendance if att.is_check_in]
-        avg_cit = Time(0, 0, sum(cins))
+        cins = [att.period.time.in_seconds() for att in staff.attendance if att.is_check_in]
+        avg_cit = Time(0, 0, sum(cins) / len(cins) if cins else 0)
         avg_cit.normalize()
         avg_cit.sec = int(avg_cit.sec)
         
-        couts = [att.period.time.in_seconds() / len(staff.attendance) for att in staff.attendance if not att.is_check_in]
-        avg_cot = Time(0, 0, sum(couts))
+        couts = [att.period.time.in_seconds() for att in staff.attendance if not att.is_check_in]
+        avg_cot = Time(0, 0, sum(couts) / len(couts) if couts else 0)
         avg_cot.normalize()
         avg_cot.sec = int(avg_cot.sec)
+        
+        disabled_color = THEME_MANAGER.pallete_get("disabled")
         
         self.attendance_amt_widget.setText(
             f"""
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Total Attended:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Total Attended:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
                         {str(sum(amt_attended for amt_attended, _ in weeks_data.values())) if plot_data else "No Data"}
                     </span>
             </span>
             <br>
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Attendance:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Attendance:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
                         {str(int(sum(list(plot_data.values())) / len(plot_data))) + "%" if plot_data else "No Data"}
                     </span>
             </span>
             <br>
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Punctuality Score:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Punctuality Score:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: rgb({r}, {g}, {b});'>
                     {round(p_score_factor, 2) if full_y_plot_points else "No Data"}
                 </span>
             </span>
             <br>
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Avg Check-in Time:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Avg Check-in Time:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
                         {avg_cit.to_str() if cins else "No Data"}
                     </span>
             </span>
             <br>
             <span>
-                <span style='font-size: 20px; font-weight: 500; color: {THEME_MANAGER.pallete_get("disabled")};'>Avg Check-out Time:  </span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Avg Check-out Time:  </span>
                 <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>
                         {avg_cot.to_str() if couts else "No Data"}
                     </span>
             </span>
             <br>
             """)
+        
+        staff_data_base_content = f"""
+            <span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Name:  </span>
+                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>{staff.name.full_name()}</span>
+            </span>
+            <br>
+            <span>
+                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>{staff_position_data[0]}:  </span>
+                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>{staff_position_data[1]}</span>
+            </span>
+        """
+        if cls:
+            staff_data_base_content += f"""
+                <br>
+                <span>
+                    <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Class:  </span>
+                    <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>{cls}</span>
+                </span>
+            """
+        
+        self.staff_data_layout.addWidget(QLabel(staff_data_base_content))
+        
+        duties_widget, duties_layout = create_widget(None, QVBoxLayout)
+        
+        if isinstance(staff, Teacher):
+            duty_days_map: dict[str, QLabel] = {}
+            
+            for subject in staff.subjects:
+                for day, _ in subject.periods:
+                    if day not in duty_days_map:
+                        duty_days_map[day] = QLabel()
+                        duties_layout.addWidget(LabeledField(day, duty_days_map[day]))
+                    
+                    duty_days_map[day].setText(
+                        duty_days_map[day].text() + f"""
+                            <span>
+                                <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>{subject.cls.name}:  </span>
+                                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>{subject.name}</span>
+                            </span>
+                            <br>
+                        """
+                    )
+            
+            self.staff_data_layout.addWidget(LabeledField("Classes", duties_widget))
+        elif isinstance(staff, Prefect):
+            for day, duties in staff.duties.items():
+                duties_content = ""
+                
+                for duty in duties:
+                    duties_content += f"<span><span style='font-weight: bold; font-size: 15px;'>•</span>  {duty}</span><br>"
+                
+                duties_layout.addWidget(LabeledField(day, QLabel(duties_content)))
+            
+            self.staff_data_layout.addWidget(LabeledField("Duties", duties_widget))
+        
 
 class CardScanScreenWidget(BaseOptionsWidget):
     comm_signal = pySignal(str)

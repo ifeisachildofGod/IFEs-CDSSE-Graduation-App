@@ -39,9 +39,10 @@ def create_widget(parent_layout: QLayout | None, layout_type: type[QHBoxLayout] 
     
     return widget, layout
 
-def create_scrollable_widget(parent_layout: QLayout | None, layout_type: type[QHBoxLayout] | type[QVBoxLayout]):
+def create_scrollable_widget(parent_layout: QLayout | None, layout_type: type[QHBoxLayout] | type[QVBoxLayout], borderless=True):
     scroll_widget = QScrollArea()
     scroll_widget.setWidgetResizable(True)
+    scroll_widget.setStyleSheet("QScrollArea{border: none}")
     
     widget = QWidget()
     scroll_widget.setWidget(widget)
