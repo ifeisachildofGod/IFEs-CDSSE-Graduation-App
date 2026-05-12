@@ -1,15 +1,15 @@
 {
+    "prefect_cit": ["$$Time$$", {"hour": 7, "min": 0, "sec": 0}],
+    "prefect_cot": ["$$Time$$", {"hour": 15, "min": 0, "sec": 0}],
+
     "teacher_cit": ["$$Time$$", {"hour": 7, "min": 0, "sec": 0}],
     "teacher_cot": ["$$Time$$", {"hour": 15, "min": 0, "sec": 0}],
     
-    "prefect_cit": ["$$Time$$", {"hour": 10, "min": 0, "sec": 0}],
-    "prefect_cot": ["$$Time$$", {"hour": 15, "min": 0, "sec": 0}],
-    
-    "teacher_cin_border_interval_minutes": 240,
-    "teacher_cout_border_interval_minutes": 240,
-    
-    "prefect_cin_border_interval_minutes": 120,
-    "prefect_cout_border_interval_minutes": 120,
+    "prefect_cin_border_interval_minutes": 60,
+    "prefect_cout_border_interval_minutes": 60,
+
+    "teacher_cin_border_interval_minutes": 60,
+    "teacher_cout_border_interval_minutes": 60,
 
     "teacher_timeline_dates": [
         [
@@ -83,7 +83,7 @@
             "post_name": "Chapel Prefect",
             "cls": ["$$Class$$", {"id": "c_id1", "name": "SS2 H"}],
             "img_path": "src/profile-images/p_id1.png",
-            "duties": {"Monday": ["Morning", "Morning Prayers"]},
+            "duties": {"Monday": ["Morning Prayers"]},
             "attendance": []
         }],
         "p_id5": ["$$Prefect$$", {

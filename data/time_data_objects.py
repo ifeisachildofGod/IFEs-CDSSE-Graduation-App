@@ -47,7 +47,7 @@ class Time:
         return self.in_minutes() / 60
     
     def to_str(self):
-        return f"{self.hour}:{self.min}:{self.sec}"
+        return f"{"0" if self.hour < 10 else ""}{self.hour}:{"0" if self.min < 10 else ""}{self.min}:{"0" if self.sec < 10 else ""}{self.sec}"
     
     def normalize(self):
         min_add = self.hour % 1
@@ -93,8 +93,7 @@ class Time:
     
     @staticmethod
     def str_to_time(str_time: str):
-        _, _, _, t, _ = str_time.split()
-        hour, min, sec = t.split(":")
+        hour, min, sec = str_time.split()[3].split(":")
         
         return Time(int(hour), int(min), int(sec))
     

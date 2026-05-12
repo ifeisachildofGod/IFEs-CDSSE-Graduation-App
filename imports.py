@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QCheckBox, QSlider,
     QFrame, QLayout, QApplication,
     QDialog, QLineEdit, QMainWindow, QComboBox,
-    QFileDialog, QDial, QRadioButton
+    QFileDialog, QDial, QRadioButton, QMenu
 )
 from PyQt6.QtGui import (
     QIcon, QPixmap, QIntValidator,

@@ -163,8 +163,12 @@ class Window(QMainWindow):
         
         # File Menu
         file_menu = menubar.addMenu("File")
+        
         # Connection Menu
         connection_menu = menubar.addMenu("Set")
+        
+        # Palette Menu
+        palette_menu = menubar.addMenu("Palette")
         
         # Add all actions
         file_menu.addAction("New", "Ctrl+N", self.file_manager.new)
@@ -179,8 +183,11 @@ class Window(QMainWindow):
         connection_menu.addAction("Device Connection", "Ctrl+D", self.activate_connection_screen)
         connection_menu.addSeparator()
         
-        c_sa_action = QAction("School Attendance", self) ; c_sa_action.setCheckable(True)
-        c_tr_action = QAction("Teacher Registry", self) ; c_tr_action.setCheckable(True)
+        c_sa_action = QAction("School Attendance", self)
+        c_tr_action = QAction("Teacher Registry", self)
+        
+        c_sa_action.setCheckable(True)
+        c_tr_action.setCheckable(True)
         
         # c_sa_action.triggerd.connect(print)     TBD
         # c_tr_action.triggerd.connect(print)     TBD
@@ -192,6 +199,35 @@ class Window(QMainWindow):
         connection_menu.addAction(c_tr_action)
         
         c_sa_action.setChecked(True)
+        
+        
+        palette_action_group = QActionGroup(self)
+        palette_action_group.setExclusive(True)
+        
+        palette_dict: dict[str, QMenu] = {}
+        for name in THEME_MANAGER.themes:
+            main, accent = name.split("-")
+            
+            if main not in palette_dict:
+                palette_dict[main] = palette_menu.addMenu(main.title())
+            
+            accent_action = QAction(accent.title(), self)
+            accent_action.setCheckable(True)
+            accent_action.triggered.connect(self._create_palette_action_func(main, accent))
+            
+            palette_action_group.addAction(accent_action)
+            palette_dict[main].addAction(accent_action)
+        
+        first_action = list(palette_dict.values())[0].actions()[0]
+        
+        first_action.setChecked(True)
+        first_action.triggered.emit()
+    
+    def _create_palette_action_func(self, main_color: str, accent_color: str):
+        def func():
+            THEME_MANAGER.apply_theme(f"{main_color}-{accent_color}")
+        
+        return func
     
     def save_callback(self, file_path: str):
         self.file_path = file_path
@@ -234,7 +270,7 @@ if __name__ == "__main__":
     
     app.setWindowIcon(QIcon("src/images/logo.ico"))
     
-    THEME_MANAGER.apply_theme(app)
+    THEME_MANAGER.set_application(app)
     
     window = Window(app.arguments())
     window.showMaximized()

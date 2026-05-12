@@ -1,7 +1,5 @@
-from itertools import product
 import random
-
-from theme import THEME_MANAGER
+from itertools import product
 
 from widgets.base_widgets import *
 
@@ -96,7 +94,7 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.find_pb = QPushButton("Search Attendances")
         self.find_pb.setFixedWidth(self.search_edit.width())
-        self.find_pb.setStyleSheet(f"background-color: {THEME_MANAGER.pallete_get("bg2")}; border: 1px solid {THEME_MANAGER.pallete_get("border")};")
+        self.find_pb.setProperty("class", "search-button")
         self.find_pb.clicked.connect(self._open_search_edit)
         
         filter_layout.addWidget(self.find_pb, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -120,6 +118,15 @@ class AttendanceWidget(BaseScrollListWidget):
             self._add_attendance_log(attendance)
         
         self._layout.insertWidget(0, self.filter_widget)
+        
+        time_timer = QTimer(self.filter_widget)
+        time_timer.timeout.connect(self._set_current_time)
+        time_timer.start(1000)
+    
+    def _set_current_time(self):
+        hr, min, sec = time.ctime().split()[3].split(":")
+        
+        self.time_label.setText(f"<span style='font-weight: bold; font-family: consolas; font-size: 25px'>{hr} : {min} : {sec}</span>")
     
     def _goto_search(self, sw: AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget | list[DropdownLabeledField | AttendancePrefectEntryWidget | AttendanceTeacherEntryWidget]):
         if isinstance(sw, list):
@@ -514,10 +521,10 @@ class AttendanceWidget(BaseScrollListWidget):
         cit_teacher_widget, cit_teacher_layout = create_widget(None, QHBoxLayout)
         cot_teacher_widget, cot_teacher_layout = create_widget(None, QHBoxLayout)
         
-        it_time_label = QLabel(f'{("0" if self.data.teacher_cit.hour < 10 else "") + str(self.data.teacher_cit.hour)}:{("0" if self.data.teacher_cit.min < 10 else "") + str(self.data.teacher_cit.min)}')
+        it_time_label = QLabel(self.data.teacher_cit.to_str().replace(":", " : "))
         it_time_label.setProperty("class", "labeled-widget")
         
-        ot_time_label = QLabel(f'{("0" if self.data.teacher_cot.hour < 10 else "") + str(self.data.teacher_cot.hour)}:{("0" if self.data.teacher_cot.min < 10 else "") + str(self.data.teacher_cot.min)}')
+        ot_time_label = QLabel(self.data.teacher_cot.to_str().replace(":", " : "))
         ot_time_label.setProperty("class", "labeled-widget")
         
         cit_teacher_layout.addWidget(QLabel(f'Teacher CIT'))
@@ -530,15 +537,22 @@ class AttendanceWidget(BaseScrollListWidget):
         teacher_layout.addWidget(cot_teacher_widget)
         
         
+        base_widget, base_layout = create_widget(None, QHBoxLayout)
+        
+        self.time_label = QLabel()
+        
+        base_layout.addWidget(self.time_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        
         prefect_widget, prefect_layout = create_widget(self.main_layout, QHBoxLayout)
         
         cit_prefect_widget, cit_prefect_layout = create_widget(None, QHBoxLayout)
         cot_prefect_widget, cot_prefect_layout = create_widget(None, QHBoxLayout)        
              
-        it_time_label = QLabel(f'{("0" if self.data.prefect_cit.hour < 10 else "") + str(self.data.prefect_cit.hour)}:{("0" if self.data.prefect_cit.min < 10 else "") + str(self.data.prefect_cit.min)}')
+        it_time_label = QLabel(self.data.prefect_cit.to_str().replace(":", " : "))
         it_time_label.setProperty("class", "labeled-widget")
         
-        ot_time_label = QLabel(f'{("0" if self.data.prefect_cot.hour < 10 else "") + str(self.data.prefect_cot.hour)}:{("0" if self.data.prefect_cot.min < 10 else "") + str(self.data.prefect_cot.min)}')
+        ot_time_label = QLabel(self.data.prefect_cot.to_str().replace(":", " : "))
         ot_time_label.setProperty("class", "labeled-widget")
         
         cit_prefect_layout.addWidget(it_time_label)
@@ -552,6 +566,7 @@ class AttendanceWidget(BaseScrollListWidget):
         
         
         time_layout.addWidget(teacher_widget, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        time_layout.addWidget(base_widget, alignment=Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop)
         time_layout.addWidget(prefect_widget, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
         
         self.main_layout.insertWidget(0, time_widget)
@@ -579,24 +594,56 @@ class AttendanceWidget(BaseScrollListWidget):
             else:
                 period = period or Period.str_to_period(time.ctime())
             
-            another_present = next((True for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), False)
+            previous_check_in = next((entry.is_check_in for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), None)
             ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
             
-            ci_states = check_states(period.time, ct_data[0], ct_data[1], self.data, "Prefect" if isinstance(staff, Prefect) else "Teacher")
+            is_check_in, is_check_out = check_states(period.time, ct_data[0], ct_data[1], self.data, "Prefect" if isinstance(staff, Prefect) else "Teacher")
             
-            if ((another_present and ci_states[0]) or (not another_present and ci_states[1])) and (ci_states[0] != ci_states[1] or ci_states[0]):
+            send_msg = ""
+            
+            if previous_check_in is not None:
+                if previous_check_in:
+                    if is_check_in:
+                        send_msg = "Check-In"
+                        scan_failed_msg = "Cannot Check-In twice"
+                    elif is_check_out:
+                        scan_failed_msg = None
+                    else:
+                        send_msg = "Check-Out"
+                        scan_failed_msg = "Cannot Check-Out during duty hours"
+                else:
+                    if is_check_in:
+                        send_msg = "Check-In"
+                        scan_failed_msg = "Cannot Check-In after Checking-Out"
+                    elif is_check_out:
+                        send_msg = "Check-Out"
+                        scan_failed_msg = "Cannot Check-Out twice"
+                    else:
+                        send_msg = "Check-Out"
+                        scan_failed_msg = "Check-In time is too late"
+            else:
+                if is_check_in:
+                    scan_failed_msg = None
+                elif is_check_out:
+                    send_msg = "Check-Out"
+                    scan_failed_msg = "Cannot Check-Out without Checking-In"
+                else:
+                    send_msg = "Check-In"
+                    scan_failed_msg = "Check-In time is too early"
+            
+            if scan_failed_msg:
                 self.comm_system.send_message(f"UNSCANNED")
                 
                 QTimer.singleShot(
                     500,
-                    lambda: self.comm_system.send_message(f"   Invalid scan  _     period     ")
+                    lambda: self.comm_system.send_message(f"    Invalid     _    {send_msg}")
                 )
                 
-                QMessageBox.warning(self.parent_widget, "CardScanTimingError", f"Either registry time is not appropriate \nOR\n You want to check-out before you check-in")
+                QMessageBox.warning(self.parent_widget, f"{send_msg.replace("-", "")}Error", scan_failed_msg)
                 
                 return
             
-            entry = AttendanceEntry(period, staff, ci_states[0])
+            entry = AttendanceEntry(period, staff, is_check_in)
             
             self.data.attendance_data.append(entry)
             staff.attendance.append(entry)
@@ -606,7 +653,7 @@ class AttendanceWidget(BaseScrollListWidget):
             self.comm_system.send_message(f"SCANNED")
             QTimer.singleShot(
                 500,
-                lambda: self.comm_system.send_message(f"   Good{' morning' if ci_states[0] else "bye"}" + "_"+ (" " * int(8 - (len(entry.staff.name.abrev) / 2))) + f"{entry.staff.name.abrev}")
+                lambda: self.comm_system.send_message(f"   Good{' morning' if is_check_in else "bye"}" + "_"+ (" " * int(8 - (len(entry.staff.name.abrev) / 2))) + f"{entry.staff.name.abrev}")
             )
             
             if self.file_manager.current_path is not None:
@@ -631,54 +678,30 @@ class StaffListWidget(BaseScrollListWidget):
         super().__init__()
         
         self.data = data
+        self.parent_widget = parent_widget
+        self.comm_system = comm_system
+        self.card_scanner_widget = card_scanner_widget
+        self.staff_data_widget = staff_data_widget
         
         prefects = sorted([(k, v) for k, v in self.data.prefects.items()], key=lambda params: params[1].name.full_name())
         teachers = sorted([(k, v) for k, v in self.data.teachers.items()], key=lambda params: params[1].name.full_name())
         boths = sorted(prefects + teachers, key=lambda params: params[1].name.full_name())
+        prefects_first = prefects + teachers
+        teachers_first = teachers + prefects
         
         self._staffs_viewed: dict[str, StaffListPrefectEntryWidget | StaffListTeacherEntryWidget] = {}
         
-        prefects_widget = QWidget()
-        prefects_layout = QVBoxLayout()
-        prefects_widget.setLayout(prefects_layout)
-        
-        for _, prefect in prefects:
-            widget = StaffListPrefectEntryWidget(parent_widget, self.data, prefect, comm_system, card_scanner_widget, staff_data_widget)
-            
-            prefects_layout.addWidget(widget)
-            self._staffs_viewed[widget.staff.id] = widget
-        
-        teachers_widget = QWidget()
-        teachers_layout = QVBoxLayout()
-        teachers_widget.setLayout(teachers_layout)
-        
-        for _, teacher in teachers:
-            widget = StaffListTeacherEntryWidget(parent_widget, self.data, teacher, comm_system, card_scanner_widget, staff_data_widget)
-            
-            teachers_layout.addWidget(widget)
-            self._staffs_viewed[widget.staff.id] = widget
-        
-        boths_widget = QWidget()
-        boths_layout = QVBoxLayout()
-        boths_widget.setLayout(boths_layout)
-        
-        for _, both in boths:
-            widget = (
-                StaffListTeacherEntryWidget(parent_widget, self.data, both, comm_system, card_scanner_widget, staff_data_widget)
-                if isinstance(both, Teacher) else
-                StaffListPrefectEntryWidget(parent_widget, self.data, both, comm_system, card_scanner_widget, staff_data_widget)
-            )
-            
-            boths_layout.addWidget(widget)
-            self._staffs_viewed[widget.staff.id] = widget
+        both_func = lambda staff: StaffListTeacherEntryWidget if isinstance(staff, Teacher) else StaffListPrefectEntryWidget
         
         self.widgets = {
-            "All": boths_widget,
-            "Prefects": prefects_widget,
-            "Teachers": teachers_widget,
+            "All": self.get_filtered_widgets(boths, both_func),
+            "Prefects": self.get_filtered_widgets(prefects, lambda _: StaffListPrefectEntryWidget),
+            "Teachers": self.get_filtered_widgets(teachers, lambda _: StaffListTeacherEntryWidget),
+            "Prefects First": self.get_filtered_widgets(prefects_first, both_func),
+            "Teachers First": self.get_filtered_widgets(teachers_first, both_func)
         }
         
-        for i, staff_widget in enumerate(self.widgets.values()):
+        for i, staff_widget in enumerate(self.widgets.copy().values()):
             staff_widget.setVisible(i == 0)
             self.main_layout.addWidget(staff_widget)
         
@@ -692,13 +715,27 @@ class StaffListWidget(BaseScrollListWidget):
         
         self.find_pb = QPushButton("Search Staff")
         self.find_pb.setFixedWidth(500)
-        self.find_pb.setStyleSheet(f"background-color: {THEME_MANAGER.pallete_get("bg2")}; border: 1px solid {THEME_MANAGER.pallete_get("border")};")
+        self.find_pb.setProperty("class", "search-button")
         self.find_pb.clicked.connect(self._open_search_edit)
         
         filter_layout.addWidget(self.find_pb, alignment=Qt.AlignmentFlag.AlignLeft)
         filter_layout.addWidget(self.filter_cb, alignment=Qt.AlignmentFlag.AlignRight)
         
         self._layout.insertWidget(0, self.filter_widget)
+    
+    def get_filtered_widgets(self, staff_list: list[tuple[str, Prefect | Teacher]], entry_type_callback: Callable[[Prefect | Teacher], type[StaffListTeacherEntryWidget] | type[StaffListTeacherEntryWidget]]):
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        widget.setLayout(layout)
+        
+        for _, staff in staff_list:
+            staff_widget = entry_type_callback(staff)(self.parent_widget, self.data, staff, self.comm_system, self.card_scanner_widget, self.staff_data_widget)
+            
+            layout.addWidget(staff_widget)
+            self._staffs_viewed[staff_widget.staff.id] = staff_widget
+        
+        return widget
     
     def _get_search_scope(self):
         return (
