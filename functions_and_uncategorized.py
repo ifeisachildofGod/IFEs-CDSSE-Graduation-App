@@ -1,9 +1,6 @@
 from imports import *
 
-def check_states(t: Time, cin: Time, cout: Time, data: AppData, focus_type: Literal["Prefect", "Teacher"]):
-    cin_interval = data.prefect_cin_border_interval_minutes if focus_type == "Prefect" else data.teacher_cin_border_interval_minutes
-    cout_interval = data.prefect_cout_border_interval_minutes if focus_type == "Prefect" else data.teacher_cout_border_interval_minutes
-    
+def check_states(t: Time, cin: Time, cout: Time, cin_interval: int, cout_interval: int):
     is_cin = (cin.in_minutes() - cin_interval) <= t.in_minutes() <= (cin.in_minutes() + cin_interval)
     is_cout = (cout.in_minutes() - cout_interval) <= t.in_minutes() <= (cout.in_minutes() + cout_interval)
     

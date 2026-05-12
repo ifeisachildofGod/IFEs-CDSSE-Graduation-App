@@ -335,7 +335,7 @@ class AttendanceWidget(BaseScrollListWidget):
             assert widg_comb
             
             widget = self._add_attendance_entry(widg_comb, attendance_entry)
-            self.scroll_to(widget)
+            self.scroll_to(widget, is_first=index==0)
         else:
             for comb, (widget, _) in self.filter_views.items():
                 self._add_attendance_entry(comb, attendance_entry)
@@ -595,9 +595,13 @@ class AttendanceWidget(BaseScrollListWidget):
                 period = period or Period.str_to_period(time.ctime())
             
             previous_check_in = next((entry.is_check_in for entry in staff.attendance if entry.period.date == period.date and entry.period.month == period.month and entry.period.year == period.year), None)
-            ct_data = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
+            cin, cout = (self.data.prefect_cit, self.data.prefect_cot) if isinstance(staff, Prefect) else (self.data.teacher_cit, self.data.teacher_cot)
             
-            is_check_in, is_check_out = check_states(period.time, ct_data[0], ct_data[1], self.data, "Prefect" if isinstance(staff, Prefect) else "Teacher")
+            cin_interval = self.data.prefect_cin_border_interval_minutes if isinstance(staff, Prefect) else self.data.teacher_cin_border_interval_minutes
+            cout_interval = self.data.prefect_cout_border_interval_minutes if isinstance(staff, Prefect) else self.data.teacher_cout_border_interval_minutes
+
+            is_check_in, is_check_out = check_states(period.time, cin, cout, cin_interval, cout_interval)
+            within_range = cin.in_minutes() - cin_interval <= period.time.in_minutes() <= cout.in_minutes() + cout_interval
             
             send_msg = ""
             
@@ -608,9 +612,12 @@ class AttendanceWidget(BaseScrollListWidget):
                         scan_failed_msg = "Cannot Check-In twice"
                     elif is_check_out:
                         scan_failed_msg = None
-                    else:
+                    elif within_range:
                         send_msg = "Check-Out"
                         scan_failed_msg = "Cannot Check-Out during duty hours"
+                    else:
+                        send_msg = "Check-Out"
+                        scan_failed_msg = "Check-Out time is too late"
                 else:
                     if is_check_in:
                         send_msg = "Check-In"
@@ -620,13 +627,16 @@ class AttendanceWidget(BaseScrollListWidget):
                         scan_failed_msg = "Cannot Check-Out twice"
                     else:
                         send_msg = "Check-Out"
-                        scan_failed_msg = "Check-In time is too late"
+                        scan_failed_msg = "Check-Out time is too late"
             else:
                 if is_check_in:
                     scan_failed_msg = None
                 elif is_check_out:
                     send_msg = "Check-Out"
                     scan_failed_msg = "Cannot Check-Out without Checking-In"
+                elif within_range:
+                    send_msg = "Check-Out"
+                    scan_failed_msg = "Cannot Check-Out without Checking-In and the Check-Out time is also too early"
                 else:
                     send_msg = "Check-In"
                     scan_failed_msg = "Check-In time is too early"
