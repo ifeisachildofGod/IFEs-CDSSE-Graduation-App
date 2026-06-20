@@ -262,7 +262,6 @@ class StaffDataWidget(BaseOptionsWidget):
                 duties_layout.addWidget(LabeledField(day, QLabel(duties_content)))
             
             self.staff_data_layout.addWidget(LabeledField("Duties", duties_widget))
-        
 
 class CardScanScreenWidget(BaseOptionsWidget):
     comm_signal = pySignal(str)
@@ -286,7 +285,7 @@ class CardScanScreenWidget(BaseOptionsWidget):
         scan_img.setStyleSheet("margin-bottom: 20px;")
         self.main_layout.addWidget(scan_img, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        info = QLabel("Please scan RFID card")
+        info = QLabel("Scan RFID card")
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(info, alignment=Qt.AlignmentFlag.AlignCenter)
         
@@ -309,8 +308,7 @@ class CardScanScreenWidget(BaseOptionsWidget):
         super().set_self(staff)
         
         self.iud_label = iud_label
-        
-        self.info_label.setText(f"To link an IUD to {self.staff.name.sur} {self.staff.name.first} (ID: {self.staff.id})")
+        self.info_label.setText(f"<span style='font-size: 20px; font-weight: 500; text-align: left;'><span style='font-weight: bold; color: {THEME_MANAGER.pallete_get('primary')};'>ID:</span>  {self.staff.id}<br>\n<span style='font-weight: bold; color: {THEME_MANAGER.pallete_get('primary')};'>Name:</span>  {self.staff.name.full()}</span>")
     
     def finished(self):
         self.iud_label = None

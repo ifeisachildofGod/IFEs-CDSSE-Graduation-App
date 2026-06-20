@@ -337,7 +337,7 @@ class BaseStaffListEntryWidget(QWidget):
     
     def set_iud(self):
         if not self.comm_system.connected:
-            QMessageBox.warning(self.parentWidget(), "Not Connected", "No device connected")
+            QMessageBox.warning(self.parentWidget(), "SetIUDError", "No device connected")
         else:
             self.card_scanner_widget.set_self(self.staff, self.iud_label)
             
