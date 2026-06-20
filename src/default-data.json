@@ -1,9 +1,9 @@
 {
-    "prefect_cit": ["$$Time$$", {"hour": 16, "min": 0, "sec": 0}],
-    "prefect_cot": ["$$Time$$", {"hour": 21, "min": 0, "sec": 0}],
+    "prefect_cit": ["$$Time$$", {"hour": 7, "min": 0, "sec": 0}],
+    "prefect_cot": ["$$Time$$", {"hour": 15, "min": 0, "sec": 0}],
 
-    "teacher_cit": ["$$Time$$", {"hour": 16, "min": 0, "sec": 0}],
-    "teacher_cot": ["$$Time$$", {"hour": 21, "min": 0, "sec": 0}],
+    "teacher_cit": ["$$Time$$", {"hour": 7, "min": 0, "sec": 0}],
+    "teacher_cot": ["$$Time$$", {"hour": 15, "min": 0, "sec": 0}],
     
     "prefect_cin_border_interval_minutes": 60,
     "prefect_cout_border_interval_minutes": 60,
