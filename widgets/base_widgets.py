@@ -238,7 +238,7 @@ class BaseDataDisplayWidget(BaseScrollListWidget):
         self._layout.insertWidget(0, filters, alignment=Qt.AlignmentFlag.AlignRight)
     
     def _get_filter_widgets(self):
-        pass
+        raise NotImplementedError()
     
     @staticmethod
     def is_entry_countable(entry: AttendanceEntry, valid_days: list[str], timeline_dates: list[tuple[Period, Period]]):
@@ -254,9 +254,12 @@ class BaseDataDisplayWidget(BaseScrollListWidget):
     def filter(self, index: int):
         for i, staff_widget in enumerate(self.widgets.values()):
             if isinstance(staff_widget, tuple) and index == i:
-                for k in staff_widget:
-                    self.widgets[k].setVisible(True)
-            else:
+                for k, w in self.widgets.items():
+                    if not isinstance(w, tuple):
+                        w.setVisible(k in staff_widget)
+                
+                break
+            elif not isinstance(staff_widget, tuple):
                 staff_widget.setVisible(index == i)
 
 
@@ -308,7 +311,7 @@ class BaseStaffListEntryWidget(QWidget):
         main_info_layout.addWidget(image, alignment=Qt.AlignmentFlag.AlignLeft)
         main_info_layout.addStretch()
         
-        name_label = QLabel(self.staff.name.full_name())
+        name_label = QLabel(self.staff.name.full())
         
         name_label.setStyleSheet("font-size: 50px")
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

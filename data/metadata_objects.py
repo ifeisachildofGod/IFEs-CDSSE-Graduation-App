@@ -8,7 +8,7 @@ class CharacterName:
     abrev: str
     other: str | None = None
     
-    def full_name(self):
+    def full(self):
         return f"{self.sur} {self.first} {self.middle}"
 
 @dataclass

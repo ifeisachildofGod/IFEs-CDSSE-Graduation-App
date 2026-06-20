@@ -137,7 +137,7 @@ class StaffDataWidget(BaseOptionsWidget):
         
         weeks_data, plot_data = self.get_staff_attendance_data(staff)
         
-        self.attendance_widget.add_data(f"{staff.name.full_name()} Attendance Data", color, plot_data)
+        self.attendance_widget.add_data(f"{staff.name.full()} Attendance Data", color, plot_data)
         
         full_y_plot_points = self.get_staff_punctuality_data(staff)
         
@@ -211,7 +211,7 @@ class StaffDataWidget(BaseOptionsWidget):
         staff_data_base_content = f"""
             <span>
                 <span style='font-size: 20px; font-weight: 500; color: {disabled_color};'>Name:  </span>
-                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>{staff.name.full_name()}</span>
+                <span style='font-size: 15px; font-weight: 900; color: #ffffff;'>{staff.name.full()}</span>
             </span>
             <br>
             <span>
@@ -319,7 +319,7 @@ class CardScanScreenWidget(BaseOptionsWidget):
             
             # QTimer.singleShot(
             #     500,
-            #     lambda: QMessageBox.information(self.parent_widget, "IUD Set", f"{self.staff.name.full_name()}'s IUD has been set to {self.staff.IUD}")
+            #     lambda: QMessageBox.information(self.parent_widget, "IUD Set", f"{self.staff.name.full()}'s IUD has been set to {self.staff.IUD}")
             # )
             
             self.just_scanned = True
@@ -339,7 +339,7 @@ class CardScanScreenWidget(BaseOptionsWidget):
                     
                     QTimer.singleShot(1000, lambda: self.comm_system.send_message("Card has already_ been assigned "))
                     
-                    QMessageBox.warning(self.parent_widget, "KeyError", f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full_name()}")
+                    QMessageBox.warning(self.parent_widget, "KeyError", f"Card of IUD {data} has already been assigned to the prefect {prefect.name.full()}")
                     
                     QTimer.singleShot(500, self._deactivate_just_scanned)
                     self.iud_changed = False
@@ -353,7 +353,7 @@ class CardScanScreenWidget(BaseOptionsWidget):
                         
                         QTimer.singleShot(1000, lambda: self.comm_system.send_message("Card has already_ been assigned "))
                         
-                        QMessageBox.warning(self.parent_widget, "KeyError", f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full_name()}")
+                        QMessageBox.warning(self.parent_widget, "KeyError", f"Card of IUD {data} has already been assigned to the teacher {teacher.name.full()}")
                         
                         QTimer.singleShot(500, self._deactivate_just_scanned)
                         self.iud_changed = False

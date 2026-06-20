@@ -123,6 +123,11 @@ stylesheet = '''
         color: {text};
     }}
     
+    QMenu::item:disabled {{
+        background: {bg2};
+        border: 1px solid black;
+    }}
+    
     QMenu::item:selected {{
         color: {primary_text};
     }}
@@ -407,8 +412,158 @@ stylesheet = '''
         border-radius: 6px;
         border: 1px solid {border};
     }}
-
 '''
+palettes = {
+    "general-palette": {
+        "title_text_teacher": "#c2c2c2",
+        "title_text_prefect": "#c2c2c2",
+        
+        "border_teacher": "#f0f0f0",
+        "border_prefect": "#f0f0f0",
+
+        "text_teacher": "#ffffff",
+        "text_prefect": "#ffffff"
+    },
+
+    "main-palette":{
+        "dark": {
+            "bg": "#1e1e1e",
+            "bg2": "#2a2a2a",
+            "bg3": "#4b4b4b",
+            "text": "#f0f0f0",
+            "secondary": "#3a3a3d",
+            "border": "#444",
+            "input_bg": "#2d2d30",
+            "input_border": "#555",
+            "scrollbar": "#555",
+            "tooltip_bg": "#333",
+            "tooltip_text": "#eee",
+            "disabled": "#777777",
+            "hover2": "#353536",
+            "hover3": "#47474b"
+        },
+        
+        "light":{
+            "bg": "#ffffff",
+            "bg2": "#ddd",
+            "bg3": "#b8b8b8",
+            "text": "#1a1a1a",
+            "secondary": "#f0f0f0",
+            "border": "#ccc",
+            "input_bg": "#ffffff",
+            "input_border": "#bbb",
+            "scrollbar": "#999",
+            "tooltip_bg": "#fefefe",
+            "tooltip_text": "#111",
+            "disabled": "#aaaaaa",
+            "hover2": "#c1c1c1",
+            "hover3": "#8f8f8f"
+        },
+        
+        "red": {
+            "bg": "#3f0000",
+            "bg2": "#610000",
+            "bg3": "#5f0000",
+            "text": "#f0f0f0",
+            "secondary": "#7e0000",
+            "border": "#444",
+            "input_bg": "#300000",
+            "input_border": "#555",
+            "scrollbar": "#555",
+            "tooltip_bg": "#333",
+            "tooltip_text": "#eee",
+            "disabled": "#777777",
+            "hover2": "#612121",
+            "hover3": "#490101"
+        },
+
+        "green": {
+            "bg": "#001b01",
+            "bg2": "#023d00",
+            "bg3": "#004910",
+            "text": "#f0f0f0",
+            "secondary": "#00660e",
+            "border": "#444",
+            "input_bg": "#003008",
+            "input_border": "#555",
+            "scrollbar": "#555",
+            "tooltip_bg": "#333",
+            "tooltip_text": "#eee",
+            "disabled": "#777777",
+            "hover2": "#236121",
+            "hover3": "#014907"
+        },
+
+        "lightblue": {
+            "bg": "#001b17",
+            "bg2": "#003d3a",
+            "bg3": "#004945",
+            "text": "#f0f0f0",
+            "secondary": "#006666",
+            "border": "#444",
+            "input_bg": "#002d30",
+            "input_border": "#555",
+            "scrollbar": "#555",
+            "tooltip_bg": "#333",
+            "tooltip_text": "#eee",
+            "disabled": "#777777",
+            "hover2": "#215f61",
+            "hover3": "#014945"
+        },
+
+        "darkblue": {
+            "bg": "#02001b",
+            "bg2": "#01003d",
+            "bg3": "#050049",
+            "text": "#f0f0f0",
+            "secondary": "#020066",
+            "border": "#444",
+            "input_bg": "#030030",
+            "input_border": "#555",
+            "scrollbar": "#555",
+            "tooltip_bg": "#333",
+            "tooltip_text": "#eee",
+            "disabled": "#777777",
+            "hover2": "#252161",
+            "hover3": "#060149"
+        }
+    },
+
+    "accent-palette": {
+        "blue": {
+            "primary_text": "#ffffff",
+            "primary": "#32a6ff",
+            "primary_hover": "#5db5fd",
+            "primary_pressed": "#1a9cff",
+            "highlight": "#a3d6ff",
+            
+            "teacher": "#004781",
+            "prefect": "#010025"
+        },
+
+        "green": {
+            "primary_text": "#f0f0f0",
+            "primary": "#0e9c15",
+            "primary_hover": "#17bb11",
+            "primary_pressed": "#15810b",
+            "highlight": "#00cc00",
+            
+            "teacher": "#008100",
+            "prefect": "#002506"
+        },
+
+        "red": {
+            "primary_text": "#f0f0f0",
+            "primary": "#9c0e0e",
+            "primary_hover": "#bb1111",
+            "primary_pressed": "#810b0b",
+            "highlight": "#cc0000",
+            
+            "teacher": "#810000",
+            "prefect": "#250000"
+        }
+    }
+}
 
 class ThemeManager:
     def __init__(self):
@@ -420,31 +575,27 @@ class ThemeManager:
         self.app = None
         
         self._name = None
+        self._load_themes()
 
     def _add_theme(self, name: str, theme_dict: dict):
         """Add a theme directly from a dict"""
         self.themes[name] = theme_dict
     
+    def _load_themes(self):
+        general = palettes["general-palette"]
+        
+        for name1, theme_palette in palettes["main-palette"].items():
+            for name2, color_palette in palettes["accent-palette"].items():
+                palette = deepcopy(theme_palette)
+                
+                palette.update(color_palette)
+                palette.update(general)
+                
+                self._add_theme(f"{name1}-{name2}", {"palette": palette, "stylesheet": stylesheet})
+
     def set_application(self, app: QApplication):
         self.app = app
     
-    def load_theme_from_file(self, file_path: str):
-        """Load theme from a JSON file"""
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Theme file not found: {file_path}")
-        with open(file_path, 'r') as f:
-            palettes = json.load(f)
-            
-            general = palettes["general-palette"]
-            
-            for name1, theme_palette in palettes["main-palette"].items():
-                for name2, color_palette in palettes["accent-palette"].items():
-                    palette = deepcopy(theme_palette)
-                    palette.update(color_palette)
-                    palette.update(general)
-                    
-                    self._add_theme(f"{name1}-{name2}", {"palette": palette, "stylesheet": stylesheet})
-
     def apply_theme(self, name: str):
         """Apply a stylesheet-only theme using values from JSON"""
         
@@ -482,5 +633,3 @@ class ThemeManager:
 
 
 THEME_MANAGER = ThemeManager()
-THEME_MANAGER.load_theme_from_file("src/palette.json")
-

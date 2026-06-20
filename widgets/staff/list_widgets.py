@@ -88,6 +88,7 @@ class AttendanceWidget(BaseScrollListWidget):
         self.comm_signal.connect(self.add_new_attendance_log)
         self.comm_system.set_data_point("IUD", self.comm_signal)
         
+        self.time_label = QLabel()
         self.filter_widget, filter_layout = create_widget(None, QHBoxLayout)
         
         self.search_edit = SearchEdit(self._get_search_scope, self._goto_search)
@@ -98,7 +99,11 @@ class AttendanceWidget(BaseScrollListWidget):
         self.find_pb.clicked.connect(self._open_search_edit)
         
         filter_layout.addWidget(self.find_pb, alignment=Qt.AlignmentFlag.AlignLeft)
+        
         filter_layout.addStretch()
+        filter_layout.addWidget(self.time_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        filter_layout.addStretch()
+        
         
         self.filter_comboboxes = []
         
@@ -114,8 +119,8 @@ class AttendanceWidget(BaseScrollListWidget):
         
         self.filter_comboboxes[0].setCurrentIndex(0)
         
-        for attendance in self.data.attendance_data:
-            self._add_attendance_log(attendance)
+        for i, attendance in enumerate(self.data.attendance_data):
+            self._add_attendance_log(attendance, i)
         
         self._layout.insertWidget(0, self.filter_widget)
         
@@ -145,7 +150,7 @@ class AttendanceWidget(BaseScrollListWidget):
                     [
                         (
                             sw_list,
-                            sw_list[-1].staff.name.full_name(),
+                            sw_list[-1].staff.name.full(),
                             (
                                 sw_list[-1].staff.name.abrev,
                                 sw_list[-1].data.period.to_str(),
@@ -176,7 +181,7 @@ class AttendanceWidget(BaseScrollListWidget):
                     [
                         (
                             sw,
-                            sw.staff.name.full_name(),
+                            sw.staff.name.full(),
                             (
                                 sw.staff.name.abrev,
                                 sw.data.period.to_str(),
@@ -539,11 +544,6 @@ class AttendanceWidget(BaseScrollListWidget):
         
         base_widget, base_layout = create_widget(None, QHBoxLayout)
         
-        self.time_label = QLabel()
-        
-        base_layout.addWidget(self.time_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        
         prefect_widget, prefect_layout = create_widget(self.main_layout, QHBoxLayout)
         
         cit_prefect_widget, cit_prefect_layout = create_widget(None, QHBoxLayout)
@@ -693,9 +693,9 @@ class StaffListWidget(BaseScrollListWidget):
         self.card_scanner_widget = card_scanner_widget
         self.staff_data_widget = staff_data_widget
         
-        prefects = sorted([(k, v) for k, v in self.data.prefects.items()], key=lambda params: params[1].name.full_name())
-        teachers = sorted([(k, v) for k, v in self.data.teachers.items()], key=lambda params: params[1].name.full_name())
-        boths = sorted(prefects + teachers, key=lambda params: params[1].name.full_name())
+        prefects = sorted([(k, v) for k, v in self.data.prefects.items()], key=lambda params: params[1].name.full())
+        teachers = sorted([(k, v) for k, v in self.data.teachers.items()], key=lambda params: params[1].name.full())
+        boths = sorted(prefects + teachers, key=lambda params: params[1].name.full())
         prefects_first = prefects + teachers
         teachers_first = teachers + prefects
         
@@ -704,9 +704,9 @@ class StaffListWidget(BaseScrollListWidget):
         both_func = lambda staff: StaffListTeacherEntryWidget if isinstance(staff, Teacher) else StaffListPrefectEntryWidget
         
         self.widgets = {
-            "All": self.get_filtered_widgets(boths, both_func),
-            "Prefects": self.get_filtered_widgets(prefects, lambda _: StaffListPrefectEntryWidget),
-            "Teachers": self.get_filtered_widgets(teachers, lambda _: StaffListTeacherEntryWidget),
+            "Default": self.get_filtered_widgets(boths, both_func),
+            "Prefects Only": self.get_filtered_widgets(prefects, lambda _: StaffListPrefectEntryWidget),
+            "Teachers Only": self.get_filtered_widgets(teachers, lambda _: StaffListTeacherEntryWidget),
             "Prefects First": self.get_filtered_widgets(prefects_first, both_func),
             "Teachers First": self.get_filtered_widgets(teachers_first, both_func)
         }
@@ -753,7 +753,7 @@ class StaffListWidget(BaseScrollListWidget):
                 [
                     (
                         sw,
-                        sw.staff.name.full_name(),
+                        sw.staff.name.full(),
                         (
                             sw.staff.name.abrev,
                             sw.staff.IUD,
@@ -791,7 +791,6 @@ class StaffListWidget(BaseScrollListWidget):
         for i, staff_widget in enumerate(self.widgets.values()):
             staff_widget.setVisible(index == i)
 
-
 class AttendanceBarWidget(BaseDataDisplayWidget):
     def __init__(self, data: AppData, staff_data_widget: StaffDataWidget):
         super().__init__(data)
@@ -799,8 +798,6 @@ class AttendanceBarWidget(BaseDataDisplayWidget):
         self.staff_data_widget = staff_data_widget
     
     def _get_filter_widgets(self):
-        super()._get_filter_widgets()
-        
         self.prefect_info_widget = BarWidget("Cummulative School Prefect Attendance", "School Prefects", "Yearly Attendance (%)")
         self.prefect_info_widget.bar_canvas.axes.set_ylim(top=100)
         
@@ -843,7 +840,7 @@ class AttendanceBarWidget(BaseDataDisplayWidget):
             att_data = self.get_percentage_attendance(teacher)
             
             if att_data:
-                t_data = [teacher.name.full_name()], [att_data]
+                t_data = [teacher.name.full()], [att_data]
             
                 if teacher.department.id not in teacher_data:
                     teacher_data[key] = [t_data]
@@ -874,8 +871,6 @@ class PunctualityGraphWidget(BaseDataDisplayWidget):
         self.staff_data_widget = staff_data_widget
     
     def _get_filter_widgets(self):
-        super()._get_filter_widgets()
-        
         self.prefect_info_widget = GraphWidget("Prefects Punctuality Graph", "Time Interval (Weeks)", "Punctuality (Hours)")
         dtd_widget, dtd_layout = create_widget(None, QVBoxLayout)
         

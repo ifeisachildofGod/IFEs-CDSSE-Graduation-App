@@ -5,6 +5,9 @@ from widgets.staff.list_widgets import *
 
 from theme import THEME_MANAGER
 
+import csv
+from io import StringIO
+from typing import List
 
 class Window(QMainWindow):
     comm_signal = pySignal(dict)
@@ -42,8 +45,7 @@ class Window(QMainWindow):
         self.connection_set_up_screen = CommSetupDialog(self, self.target_connector)
         # self.management_set_up_screen = ManageSetupDialog(self)
         self.file_manager = FileManager(self, self.file_path, "CDSSE Attendance Files (*.cdat)")
-        
-        self.file_manager.set_callbacks(self.save_callback, self.open_callback, self.load_callback)
+        self.file_manager.set_callbacks(self.save_callback, self.open_callback, self.load_callback, self.csv_export_callback)
         
         self.create_menu_bar()
         
@@ -72,12 +74,9 @@ class Window(QMainWindow):
         
         if not self.file_path:
             with open(self._default_file_path or "src/default-data.json") as file:
-                app_data = process_from_data(json.load(file), data_class_mapping)
-                
-                self.data = AppData(**app_data)
+                self.data = AppData(**process_from_data(json.load(file), data_class_mapping))
         else:
             self.file_manager.current_path = self.file_path
-            
             self.data = self.file_manager.get_file_data()
         
         # Create stacked widget for content
@@ -175,6 +174,9 @@ class Window(QMainWindow):
         file_menu.addAction("Open", "Ctrl+O", self.file_manager.open)
         file_menu.addAction("Save", "Ctrl+S", self.file_manager.save)
         file_menu.addAction("Save As", "Ctrl+Shift+S", self.file_manager.save_as)
+        file_menu.addSeparator()
+        file_menu.addAction("Export to CSV", "Ctrl+Shift+E", self.file_manager.csv_export)
+        file_menu.addSeparator()
         file_menu.addAction("Close", self.close)
         
         m_type_group = QActionGroup(self)
@@ -222,12 +224,48 @@ class Window(QMainWindow):
         
         first_action.setChecked(True)
         first_action.triggered.emit()
+        
+        c_sa_action.setDisabled(True)
+        c_tr_action.setDisabled(True)
     
     def _create_palette_action_func(self, main_color: str, accent_color: str):
         def func():
             THEME_MANAGER.apply_theme(f"{main_color}-{accent_color}")
         
         return func
+    
+    def csv_export_callback(self, file_path: str):
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow([
+            "Name",
+            "Role",
+            "Day",
+            "Date",
+            "Month",
+            "Year",
+            "Time",
+            "Check Type",
+            "Has Duties"
+        ])
+
+        for entry in self.data.attendance_data:
+            writer.writerow([
+                entry.staff.name.full(),
+                "Prefect" if isinstance(entry.staff, Prefect) else "Teacher",
+                entry.period.day,
+                entry.period.date,
+                entry.period.month,
+                entry.period.year,
+                str(entry.period.time),
+                "Check In" if entry.is_check_in else "Check Out",
+                ("Yes" if entry.period.day in entry.staff.duties else "No") if isinstance(entry.staff, Prefect) else next(("Yes" for s in entry.staff.subjects if next((True for d, _ in s.periods if d == entry.period.day), False)), "No")
+            ])
+        
+        with open(file_path, "w", newline="", encoding="utf-8") as file:
+            file.write(output.getvalue().strip())
     
     def save_callback(self, file_path: str):
         self.file_path = file_path

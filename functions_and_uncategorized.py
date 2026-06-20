@@ -90,11 +90,13 @@ class FileManager:
         self.save_callback: Optional[Callable[[str | None], str]] = None
         self.open_callback: Optional[Callable[[], None] | Callable[[str, Any], None]] = None
         self.load_callback: Optional[Callable[[str], Any]] = None
+        self.csv_export_callback: Optional[Callable[[str], None]] = None
 
-    def set_callbacks(self, save: Callable[[str | None], None], open_: Callable[[], None] | Callable[[str, Any], None], load: Callable[[], Any]):
+    def set_callbacks(self, save: Callable[[str | None], None], open_: Callable[[], None] | Callable[[str, Any], None], load: Callable[[], Any], csv_export: Callable[[str], None]):
         self.save_callback = save
         self.open_callback = open_
         self.load_callback = load
+        self.csv_export_callback = csv_export
     
     def get_file_data(self):
         assert self.current_path
@@ -136,5 +138,15 @@ class FileManager:
                     self.save_callback(self.current_path)
             except Exception as e:
                 QMessageBox.critical(self.parent, "Save As Error", str(e))
+    
+    def csv_export(self):
+        file_path, _ = QFileDialog.getSaveFileName(self.parent, "Export to CSV", "", "CSV Files (*.csv)")
+        
+        if file_path:
+            try:
+                if self.csv_export_callback:
+                    self.csv_export_callback(file_path)
+            except Exception as e:
+                QMessageBox.critical(self.parent, "Export Error", str(e))
 
 

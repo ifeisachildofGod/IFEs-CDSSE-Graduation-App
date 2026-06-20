@@ -37,6 +37,9 @@ class Time:
     min: int
     sec: float
     
+    def __repr__(self):
+        return self.to_str()
+    
     def in_seconds(self):
         return self.sec + self.min * 60 + self.hour * 60 * 60
     
@@ -113,6 +116,9 @@ class Period:
     date: int
     month: str
     year: int
+    
+    def __repr__(self):
+        return self.to_str()
     
     def in_seconds(self):
         prev_months = list(MONTHS_OF_THE_YEAR.values())[:list(MONTHS_OF_THE_YEAR).index(self.month)] + [0]
